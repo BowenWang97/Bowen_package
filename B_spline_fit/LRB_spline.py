@@ -135,7 +135,7 @@ def control_point_calculate_2d(data_point,data_point_value,first_tangent_vector,
 
             for n in range(len_data_point):
 
-                THB_spline = THB_spline_calculate(knot_vector,knot_vector[l][n],order)
+                THB_spline = LRB_spline_calculate(knot_vector,knot_vector[l][n],order)
 
                 knot_vector_level = knot_vector_summary(knot_vector,n,l)
                 
@@ -301,7 +301,7 @@ def fit_2d(data_point,data_point_value,point_delta,order=3):
 
     for n in range(point_number+1):
 
-        NUTHB_spline_point = THB_spline_point_calculate_2d(control_point,knot_vector,point_vector[n],order)
+        NUTHB_spline_point = LRB_spline_point_calculate_2d(control_point,knot_vector,point_vector[n],order)
 
         if (n == point_number):
 
@@ -317,7 +317,7 @@ def fit_2d(data_point,data_point_value,point_delta,order=3):
 
     return fit_point
 
-def THB_spline_calculate(knot_vector,vector,order=3):
+def LRB_spline_calculate(knot_vector,vector,order=3):
 
     vector_position = vector_position_find(knot_vector,vector)
 
@@ -361,7 +361,7 @@ def THB_spline_calculate(knot_vector,vector,order=3):
 
     return THB_spline
 
-def THB_spline_point_calculate_2d(control_point,control_point_value,knot_vector,vector,order=3):
+def LRB_spline_point_calculate_2d(control_point,control_point_value,knot_vector,vector,order=3):
 
     level_knot_vector = len(knot_vector)
 
