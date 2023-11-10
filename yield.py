@@ -312,7 +312,7 @@ def yield_calculate_4d_2(parameter_1,parameter_1_delta,parameter_1_variance,para
 
     return(yield_parameter_1,yield_parameter_2,yield_parameter_3,yield_parameter_4,yield_performance)
 
-def yield_calculate_4d_3(parameter_1,parameter_1_delta,parameter_1_variance,parameter_2,parameter_2_delta,parameter_2_variance,parameter_3,parameter_3_delta,parameter_3_variance,parameter_4,parameter_4_delta,parameter_4_variance,performance_1,performance_condition_1,performance_2,performance_condition_2,performance_3,performance_condition_3):
+def yield_calculate_4d_3(parameter_1,parameter_1_delta,parameter_1_variance,parameter_2,parameter_2_delta,parameter_2_variance,parameter_3,parameter_3_delta,parameter_3_variance,parameter_4,parameter_4_delta,parameter_4_variance,performance_1,performance_condition_1,performance_2,performance_condition_2,performance_3,performance_condition_3_min,performance_condition_3_max):
 
     len_parameter_1 = len(parameter_1)
     len_parameter_2 = len(parameter_2)
@@ -389,7 +389,7 @@ def yield_calculate_4d_3(parameter_1,parameter_1_delta,parameter_1_variance,para
 
                                     distribution_sum = distribution_sum+gaussian
 
-                                    if (performance_1[i1+j1][i2+j2][i3+j3][i4+j4] >= performance_condition_1 and performance_2[i1+j1][i2+j2][i3+j3][i4+j4] >= performance_condition_2 and performance_3[i1+j1][i2+j2][i3+j3][i4+j4] >= performance_condition_3):
+                                    if (performance_1[i1+j1][i2+j2][i3+j3][i4+j4] >= performance_condition_1 and performance_2[i1+j1][i2+j2][i3+j3][i4+j4] >= performance_condition_2 and performance_3[i1+j1][i2+j2][i3+j3][i4+j4] >= performance_condition_3_min and performance_3[i1+j1][i2+j2][i3+j3][i4+j4] <= performance_condition_3_max):
 
                                         yield_sum = yield_sum+gaussian
                         
