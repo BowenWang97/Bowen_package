@@ -515,7 +515,7 @@ def control_point_calculate_5d(data_point,data_point_value,knot_vector,order=3):
                     dp[0][n4] = control_point_1[3][n1][n2][n3][n4]
                     dp[1][n4] = control_point_1[4][n1][n2][n3][n4]
 
-                data_point_derivative = data_point_derivative_calculate(dp,knot_vector[2])
+                data_point_derivative = data_point_derivative_calculate(dp,knot_vector[3])
 
                 first_tangent_vector = [data_point_derivative[0][0][1],data_point_derivative[1][0][1]]
                 last_tangent_vector = [data_point_derivative[0][len_data_point_4-order+1][1],data_point_derivative[1][len_data_point_4-order+1][1]]
@@ -566,7 +566,7 @@ def data_point_derivative_calculate(data_point,knot_vector,derivative_order=1):
 
     data_point_derivative = np.zeros(shape = (2,len_data_point,derivative_order+1))
 
-    knot_vector_derovative = knot_vector_derivative_calculate(knot_vector,derivative_order)
+    knot_vector_derivative = knot_vector_derivative_calculate(knot_vector,derivative_order)
 
     for d in range(2):
 
@@ -582,7 +582,7 @@ def data_point_derivative_calculate(data_point,knot_vector,derivative_order=1):
 
                 for m in range(len_data_point-k):
 
-                    data_point_derivative[d][m][k] = (data_point_derivative[d][m+1][k-1]-data_point_derivative[d][m][k-1])/(knot_vector_derovative[m+1][k-1]-knot_vector_derovative[m][k-1])
+                    data_point_derivative[d][m][k] = (data_point_derivative[d][m+1][k-1]-data_point_derivative[d][m][k-1])/(knot_vector_derivative[m+1][k-1]-knot_vector_derivative[m][k-1])
     
     return data_point_derivative
 
