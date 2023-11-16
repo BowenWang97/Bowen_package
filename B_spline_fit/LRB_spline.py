@@ -153,7 +153,7 @@ def control_point_calculate_2d(data_point,data_point_value,first_tangent_vector,
 
 def control_point_summary_2d(control_point,control_point_value,knot_vector,knot_vector_number,level):
 
-    knot_vector_sequence = knot_vector_sequence_find(knot_vector,knot_vector_number,level)
+    knot_vector_sequence = data_point_sequence_find(knot_vector,knot_vector_number,level)
 
     control_point_summary = list(control_point[0])
     control_point_value_summary = list(control_point_value[0])
@@ -333,7 +333,7 @@ def LRB_spline_calculate(knot_vector,vector,order=3):
 
         knot_vector_number = vector_position[2]
 
-    knot_vector_sequence = knot_vector_sequence_find(knot_vector,knot_vector_number,level)
+    knot_vector_sequence = data_point_sequence_find(knot_vector,knot_vector_number,level)
 
     knot_vector_0 = knot_vector_repeat(knot_vector[0],order)
 
@@ -472,27 +472,27 @@ def knot_vector_derivative_calculate(all_knot_vector,derivative_order):
 
     return knot_vector_derivative
 
-def knot_vector_sequence_find(knot_vector,knot_vector_number,level):
+def data_point_sequence_find(data_point,data_point_number,level):
 
-    knot_vector_sequence = []
+    data_point_sequence = []
 
     for l in range(level):
 
-        knot_vector_position = data_point_position_find(knot_vector,knot_vector_number,level)
+        data_point_position = data_point_position_find(data_point,data_point_number,level)
 
-        if (knot_vector_position[1] >= knot_vector_position[3]):
+        if (data_point_position[1] >= data_point_position[3]):
 
-            knot_vector_sequence.insert(0,knot_vector_position[0])
+            data_point_sequence.insert(0,data_point_position[0])
 
         else:
 
-            knot_vector_sequence.insert(0,knot_vector_position[2])
+            data_point_sequence.insert(0,data_point_position[2])
 
-    return knot_vector_sequence
+    return data_point_sequence
 
 def knot_vector_summary(knot_vector,knot_vector_number,level):
 
-    knot_vector_sequence = knot_vector_sequence_find(knot_vector,knot_vector_number,level)
+    knot_vector_sequence = data_point_sequence_find(knot_vector,knot_vector_number,level)
 
     knot_vector_summary = list(knot_vector[0])
 
