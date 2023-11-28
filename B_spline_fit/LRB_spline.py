@@ -7,9 +7,9 @@ def B_spline_calculate(knot_vector,vector,order=3):
 
     i = position_find(knot_vector,vector)
 
-    B_spline = np.zeros(shape = (len_knot_vector,order+1))
+    B_spline = np.zeros(shape = (order+1,len_knot_vector))
 
-    B_spline[i][0] = 1
+    B_spline[0][i] = 1
 
     for k in range(1,order+1):
         
@@ -17,29 +17,52 @@ def B_spline_calculate(knot_vector,vector,order=3):
 
             if (knot_vector[n+k]-knot_vector[n] == 0 and (knot_vector[n+k+1]-knot_vector[n+1]) != 0):
 
-                B_spline[k] = (knot_vector[n+k+1]-vector)/(knot_vector[n+k+1]-knot_vector[n+1])*B_spline[n+1][k-1]
+                B_spline[k][n] = (knot_vector[n+k+1]-vector)/(knot_vector[n+k+1]-knot_vector[n+1])*B_spline[k-1][n+1]
 
             elif (knot_vector[n+k]-knot_vector[n] != 0 and (knot_vector[n+k+1]-knot_vector[n+1]) == 0):
 
-                B_spline[k] = (vector-knot_vector[n])/(knot_vector[n+k]-knot_vector[n])*B_spline[k-1]
+                B_spline[k][n] = (vector-knot_vector[n])/(knot_vector[n+k]-knot_vector[n])*B_spline[k-1][n]
 
             elif (knot_vector[n+k]-knot_vector[n] == 0 and (knot_vector[n+k+1]-knot_vector[n+1]) == 0):
 
-                B_spline[n][k] = 0
+                B_spline[k][n] = 0
 
             else:
 
-                B_spline[n][k] = (vector-knot_vector[n])/(knot_vector[n+k]-knot_vector[n])*B_spline[n][k-1]+(knot_vector[n+k+1]-vector)/(knot_vector[n+k+1]-knot_vector[n+1])*B_spline[n+1][k-1]
+                B_spline[k][n] = (vector-knot_vector[n])/(knot_vector[n+k]-knot_vector[n])*B_spline[k-1][n]+(knot_vector[n+k+1]-vector)/(knot_vector[n+k+1]-knot_vector[n+1])*B_spline[k-1][n+1]
 
     return B_spline
 
-def B_spline_split(B_spline_1,B_spline_2,knot_vector):
+def B_spline_split(B_spline_1,B_spline_2,knot_vector,vector):
 
     len_knot_vector = len(knot_vector)
 
-    BS_split = np.zeros(shape = (len_knot_vector,order+1))
+    BS_split = np.zeros(shape = (len_knot_vector,len_knot_vector))
 
-    BS_split[0][0] = B_spline_1
+    BS_split[len_knot_vector-2][0] = B_spline_1
+    BS_split[len_knot_vector-1][0] = B_spline_2
+
+    for k in range(len_knot_vector-2):
+
+        for n in range(len_knot_vector):
+
+            if (knot_vector[n+k]-knot_vector[n] == 0 and (knot_vector[n+k+1]-knot_vector[n+1]) != 0):
+
+                BS_split[k][n] = (knot_vector[n+k+1]-vector)/(knot_vector[n+k+1]-knot_vector[n+1])*BS_split[n+1][k-1]
+
+            elif (knot_vector[n+k]-knot_vector[n] != 0 and (knot_vector[n+k+1]-knot_vector[n+1]) == 0):
+
+                BS_split[k][n] = (vector-knot_vector[n])/(knot_vector[n+k]-knot_vector[n])*BS_split[k-1]
+
+            elif (knot_vector[n+k]-knot_vector[n] == 0 and (knot_vector[n+k+1]-knot_vector[n+1]) == 0):
+
+                BS_split[k][n] = 0
+
+            else:
+
+                BS_split[k][n] = (vector-knot_vector[n])/(knot_vector[n+k]-knot_vector[n])*BS_split[n][k-1]+(knot_vector[n+k+1]-vector)/(knot_vector[n+k+1]-knot_vector[n+1])*BS_split[n+1][k-1]
+
+    return BS_split
 
 def control_point_calculate_2d(data_point,data_point_value,first_tangent_vector,last_tangent_vector,knot_vector,order=3):
 
@@ -446,7 +469,7 @@ def LRHB_spline_calculate(knot_vector,vector,order=3):
 
     knot_vector_0 = knot_vector_repeat(knot_vector[0],order)
 
-    THB_spline = [B_spline_calculate(knot_vector_0,vector,order)[:,order]]
+    THB_spline = [B_spline_calculate(knot_vector_0,vector,order)[order]]
 
     for l in range(1,level+1):
 
