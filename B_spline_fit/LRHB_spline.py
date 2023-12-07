@@ -33,47 +33,31 @@ def B_spline_calculate(knot_vector,vector,order=3):
 
     return B_spline[order]
 
-def B_spline_split(B_spline_1,B_spline_2,knot_vector,vector):
+def B_spline_split(knot_vector_split,vector,spline):
 
-    len_knot_vector = len(knot_vector)
+    len_knot_vector_level = len(knot_vector_split)
 
-    BS_split = np.zeros(shape = (len_knot_vector,len_knot_vector))
-    
-    BS_split[0][0] = B_spline_1
-    BS_split[0][len_knot_vector-1] = B_spline_2
+    BS_split = np.zeros(shape = (len_knot_vector_level,len_knot_vector_level))
 
-    i1 = 0
-    i2 = len_knot_vector-2
+    BS_split[0][len_knot_vector_level-1] = spline
 
-    for k in range(1,len_knot_vector):
+    i = len_knot_vector_level-2
 
-        for n in range(i1,i1+k):
+    for k in range(1,len_knot_vector_level):
 
-            if (knot_vector[n+k]-knot_vector[n] == 0 and (knot_vector[n+k+1]-knot_vector[n+1]) != 0):
+        for n in range(i-k,i+1):
 
-                BS_split[k][n] = (knot_vector[n+k+1]-vector)/(knot_vector[n+k+1]-knot_vector[n+1])*BS_split[k-1][n-1]
+            if (knot_vector_split[n+k]-knot_vector_split[n] == 0 and (knot_vector_split[n+k+1]-knot_vector_split[n+1]) != 0):
 
-            elif (knot_vector[n+k]-knot_vector[n] != 0 and (knot_vector[n+k+1]-knot_vector[n+1]) == 0):
+                BS_split[k][n] = (knot_vector_split[n+k+1]-vector)/(knot_vector_split[n+k+1]-knot_vector_split[n+1])*BS_split[k-1][n+1]
 
-                BS_split[k][n] = (vector-knot_vector[n])/(knot_vector[n+k]-knot_vector[n])*BS_split[k-1][n]
+            elif (knot_vector_split[n+k]-knot_vector_split[n] != 0 and (knot_vector_split[n+k+1]-knot_vector_split[n+1]) == 0):
+
+                BS_split[k][n] = (vector-knot_vector_split[n])/(knot_vector_split[n+k]-knot_vector_split[n])*BS_split[k-1][n]
 
             else:
 
-                BS_split[k][n] = (vector-knot_vector[n])/(knot_vector[n+k]-knot_vector[n])*BS_split[k-1][n]+(knot_vector[n+k+1]-vector)/(knot_vector[n+k+1]-knot_vector[n+1])*BS_split[k-1][n-1]
-        
-        for n in range(i2-k,i2+1):
-
-            if (knot_vector[n+k]-knot_vector[n] == 0 and (knot_vector[n+k+1]-knot_vector[n+1]) != 0):
-
-                BS_split[k][n] = (knot_vector[n+k+1]-vector)/(knot_vector[n+k+1]-knot_vector[n+1])*BS_split[k-1][n+1]
-
-            elif (knot_vector[n+k]-knot_vector[n] != 0 and (knot_vector[n+k+1]-knot_vector[n+1]) == 0):
-
-                BS_split[k][n] = (vector-knot_vector[n])/(knot_vector[n+k]-knot_vector[n])*BS_split[k-1][n]
-
-            else:
-
-                BS_split[k][n] = (vector-knot_vector[n])/(knot_vector[n+k]-knot_vector[n])*BS_split[k-1][n]+(knot_vector[n+k+1]-vector)/(knot_vector[n+k+1]-knot_vector[n+1])*BS_split[k-1][n+1]
+                BS_split[k][n] = (vector-knot_vector_split[n])/(knot_vector_split[n+k]-knot_vector_split[n])*BS_split[k-1][n]+(knot_vector_split[n+k+1]-vector)/(knot_vector_split[n+k+1]-knot_vector_split[n+1])*BS_split[k-1][n+1]
 
     return BS_split
 
