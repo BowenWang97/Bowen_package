@@ -7,9 +7,9 @@ def B_spline_calculate(knot_vector,vector,order=3):
 
     i = position_find(knot_vector,vector)
 
-    B_spline = np.zeros(shape = (len_knot_vector,order+1))
+    B_spline = np.zeros(shape = (order+1,len_knot_vector))
 
-    B_spline[i][0] = 1
+    B_spline[0][i] = 1
 
     for k in range(1,order+1):
             
@@ -17,21 +17,21 @@ def B_spline_calculate(knot_vector,vector,order=3):
 
             if (knot_vector[n+k]-knot_vector[n] == 0 and (knot_vector[n+k+1]-knot_vector[n+1]) != 0):
 
-                B_spline[n][k] = (knot_vector[n+k+1]-vector)/(knot_vector[n+k+1]-knot_vector[n+1])*B_spline[n+1][k-1]
+                B_spline[k][n] = (knot_vector[n+k+1]-vector)/(knot_vector[n+k+1]-knot_vector[n+1])*B_spline[k-1][n+1]
 
             elif (knot_vector[n+k]-knot_vector[n] != 0 and (knot_vector[n+k+1]-knot_vector[n+1]) == 0):
 
-                B_spline[n][k] = (vector-knot_vector[n])/(knot_vector[n+k]-knot_vector[n])*B_spline[n][k-1]
+                B_spline[k][n] = (vector-knot_vector[n])/(knot_vector[n+k]-knot_vector[n])*B_spline[k-1][n]
 
             elif (knot_vector[n+k]-knot_vector[n] == 0 and (knot_vector[n+k+1]-knot_vector[n+1]) == 0):
 
-                B_spline[n][k] = 0
+                B_spline[k][n] = 0
 
             else:
 
-                B_spline[n][k] = (vector-knot_vector[n])/(knot_vector[n+k]-knot_vector[n])*B_spline[n][k-1]+(knot_vector[n+k+1]-vector)/(knot_vector[n+k+1]-knot_vector[n+1])*B_spline[n+1][k-1]
+                B_spline[k][n] = (vector-knot_vector[n])/(knot_vector[n+k]-knot_vector[n])*B_spline[k-1][n]+(knot_vector[n+k+1]-vector)/(knot_vector[n+k+1]-knot_vector[n+1])*B_spline[k-1][n+1]
 
-    return B_spline
+    return B_spline[order]
 
 def B_spline_point_calculate_2d(control_point,knot_vector,vector,order=3):
 
@@ -56,7 +56,7 @@ def B_spline_point_calculate_2d(control_point,knot_vector,vector,order=3):
 
             else:
 
-                point[d] = point[d]+control_point[d][i+m]*B_spline[i+m][order]
+                point[d] = point[d]+control_point[d][i+m]*B_spline[i+m]
 
     return point
 
@@ -89,8 +89,8 @@ def B_spline_point_calculate_3d(control_point,knot_vector,vector,order=3):
 
             else:
 
-                point_1[0] = point_1[0]+control_point[1][i1+m1][i2+m2]*B_spline_2[i2+m2][order]
-                point_1[1] = point_1[1]+control_point[2][i1+m1][i2+m2]*B_spline_2[i2+m2][order]
+                point_1[0] = point_1[0]+control_point[1][i1+m1][i2+m2]*B_spline_2[i2+m2]
+                point_1[1] = point_1[1]+control_point[2][i1+m1][i2+m2]*B_spline_2[i2+m2]
 
         if (i1+m1 >= size_control_point[1]):
 
@@ -98,9 +98,9 @@ def B_spline_point_calculate_3d(control_point,knot_vector,vector,order=3):
 
         else:
 
-            point[0] = point[0]+control_point[0][i1+m1][0]*B_spline_1[i1+m1][order]
-            point[1] = point[1]+point_1[0]*B_spline_1[i1+m1][order]
-            point[2] = point[2]+point_1[1]*B_spline_1[i1+m1][order]
+            point[0] = point[0]+control_point[0][i1+m1][0]*B_spline_1[i1+m1]
+            point[1] = point[1]+point_1[0]*B_spline_1[i1+m1]
+            point[2] = point[2]+point_1[1]*B_spline_1[i1+m1]
 
     return point
 
@@ -140,8 +140,8 @@ def B_spline_point_calculate_4d(control_point,knot_vector,vector,order=3):
 
                 else:
 
-                    point_2[0] = point_2[0]+control_point[2][i1+m1][i2+m2][i3+m3]*B_spline_3[i3+m3][order]
-                    point_2[1] = point_2[1]+control_point[3][i1+m1][i2+m2][i3+m3]*B_spline_3[i3+m3][order]
+                    point_2[0] = point_2[0]+control_point[2][i1+m1][i2+m2][i3+m3]*B_spline_3[i3+m3]
+                    point_2[1] = point_2[1]+control_point[3][i1+m1][i2+m2][i3+m3]*B_spline_3[i3+m3]
 
             if (i2+m2 >= size_control_point[2]):
 
@@ -149,9 +149,9 @@ def B_spline_point_calculate_4d(control_point,knot_vector,vector,order=3):
 
             else:
 
-                point_1[0] = point_1[0]+control_point[1][i1+m1][i2+m2][0]*B_spline_2[i2+m2][order]
-                point_1[1] = point_1[1]+point_2[0]*B_spline_2[i2+m2][order]
-                point_1[2] = point_1[2]+point_2[1]*B_spline_2[i2+m2][order]
+                point_1[0] = point_1[0]+control_point[1][i1+m1][i2+m2][0]*B_spline_2[i2+m2]
+                point_1[1] = point_1[1]+point_2[0]*B_spline_2[i2+m2]
+                point_1[2] = point_1[2]+point_2[1]*B_spline_2[i2+m2]
 
         if (i1+m1 >= size_control_point[1]):
 
@@ -159,10 +159,10 @@ def B_spline_point_calculate_4d(control_point,knot_vector,vector,order=3):
 
         else:
 
-            point[0] = point[0]+control_point[0][i1+m1][0][0]*B_spline_1[i1+m1][order]
-            point[1] = point[1]+point_1[0]*B_spline_1[i1+m1][order]
-            point[2] = point[2]+point_1[1]*B_spline_1[i1+m1][order]
-            point[3] = point[3]+point_1[2]*B_spline_1[i1+m1][order]
+            point[0] = point[0]+control_point[0][i1+m1][0][0]*B_spline_1[i1+m1]
+            point[1] = point[1]+point_1[0]*B_spline_1[i1+m1]
+            point[2] = point[2]+point_1[1]*B_spline_1[i1+m1]
+            point[3] = point[3]+point_1[2]*B_spline_1[i1+m1]
 
     return point
 
@@ -209,8 +209,8 @@ def B_spline_point_calculate_5d(control_point,knot_vector,vector,order=3):
 
                     else:
 
-                        point_3[0] = point_3[0]+control_point[3][i1+m1][i2+m2][i3+m3][i4+m4]*B_spline_4[i4+m4][order]
-                        point_3[1] = point_3[1]+control_point[4][i1+m1][i2+m2][i3+m3][i4+m4]*B_spline_4[i4+m4][order]
+                        point_3[0] = point_3[0]+control_point[3][i1+m1][i2+m2][i3+m3][i4+m4]*B_spline_4[i4+m4]
+                        point_3[1] = point_3[1]+control_point[4][i1+m1][i2+m2][i3+m3][i4+m4]*B_spline_4[i4+m4]
 
                 if (i3+m3 >= size_control_point[3]):
 
@@ -218,9 +218,9 @@ def B_spline_point_calculate_5d(control_point,knot_vector,vector,order=3):
 
                 else:
 
-                    point_2[0] = point_2[0]+control_point[2][i1+m1][i2+m2][i3+m3][0]*B_spline_3[i3+m3][order]
-                    point_2[1] = point_2[1]+point_3[0]*B_spline_3[i3+m3][order]
-                    point_2[2] = point_2[2]+point_3[1]*B_spline_3[i3+m3][order]
+                    point_2[0] = point_2[0]+control_point[2][i1+m1][i2+m2][i3+m3][0]*B_spline_3[i3+m3]
+                    point_2[1] = point_2[1]+point_3[0]*B_spline_3[i3+m3]
+                    point_2[2] = point_2[2]+point_3[1]*B_spline_3[i3+m3]
 
             if (i2+m2 >= size_control_point[2]):
 
@@ -228,10 +228,10 @@ def B_spline_point_calculate_5d(control_point,knot_vector,vector,order=3):
 
             else:
 
-                point_1[0] = point_1[0]+control_point[1][i1+m1][i2+m2][0][0]*B_spline_2[i2+m2][order]
-                point_1[1] = point_1[1]+point_2[0]*B_spline_2[i2+m2][order]
-                point_1[2] = point_1[2]+point_2[1]*B_spline_2[i2+m2][order]
-                point_1[3] = point_1[3]+point_2[2]*B_spline_2[i2+m2][order]
+                point_1[0] = point_1[0]+control_point[1][i1+m1][i2+m2][0][0]*B_spline_2[i2+m2]
+                point_1[1] = point_1[1]+point_2[0]*B_spline_2[i2+m2]
+                point_1[2] = point_1[2]+point_2[1]*B_spline_2[i2+m2]
+                point_1[3] = point_1[3]+point_2[2]*B_spline_2[i2+m2]
 
         if (i1+m1 >= size_control_point[1]):
 
@@ -239,11 +239,11 @@ def B_spline_point_calculate_5d(control_point,knot_vector,vector,order=3):
 
         else:
 
-            point[0] = point[0]+control_point[0][i1+m1][0][0][0]*B_spline_1[i1+m1][order]
-            point[1] = point[1]+point_1[0]*B_spline_1[i1+m1][order]
-            point[2] = point[2]+point_1[1]*B_spline_1[i1+m1][order]
-            point[3] = point[3]+point_1[2]*B_spline_1[i1+m1][order]
-            point[4] = point[4]+point_1[3]*B_spline_1[i1+m1][order]
+            point[0] = point[0]+control_point[0][i1+m1][0][0][0]*B_spline_1[i1+m1]
+            point[1] = point[1]+point_1[0]*B_spline_1[i1+m1]
+            point[2] = point[2]+point_1[1]*B_spline_1[i1+m1]
+            point[3] = point[3]+point_1[2]*B_spline_1[i1+m1]
+            point[4] = point[4]+point_1[3]*B_spline_1[i1+m1]
 
     return point
 
@@ -263,7 +263,7 @@ def B_spline_point_derivative_calculate_2d(control_point,knot_vector,vector,deri
 
         for j in range(len_control_point):
 
-            B_spline_point_derivative[d] = B_spline_point_derivative[d]+control_point_derivative[d][j][derivative_order]*B_spline[j][order-derivative_order]
+            B_spline_point_derivative[d] = B_spline_point_derivative[d]+control_point_derivative[d][j][derivative_order]*B_spline[order-derivative_order][j]
 
     return B_spline_point_derivative
 
@@ -302,15 +302,15 @@ def control_point_calculate_2d(data_point,first_tangent_vector,last_tangent_vect
 
             if (m == 0):
 
-                data_point_matrix[d][m] = data_point_matrix[d][m]-B_spline[m+1][order]*control_point[d][1]
+                data_point_matrix[d][m] = data_point_matrix[d][m]-B_spline[m+1]*control_point[d][1]
 
                 for i in range(order-1):
 
-                    coefficiency_matrix[m][m+i] = B_spline[m+i+2][order]
+                    coefficiency_matrix[m][m+i] = B_spline[m+i+2]
 
             elif (m == len_data_point_matrix-1):
 
-                data_point_matrix[d][m] = data_point_matrix[d][m]-B_spline[m+3][order]*control_point[d][len_data_point]
+                data_point_matrix[d][m] = data_point_matrix[d][m]-B_spline[m+3]*control_point[d][len_data_point]
 
                 for i in range(order):
 
@@ -320,7 +320,7 @@ def control_point_calculate_2d(data_point,first_tangent_vector,last_tangent_vect
 
                     else:
 
-                        coefficiency_matrix[m][m+i-1] = B_spline[m+i+1][order]
+                        coefficiency_matrix[m][m+i-1] = B_spline[m+i+1]
 
             else:
 
@@ -332,7 +332,7 @@ def control_point_calculate_2d(data_point,first_tangent_vector,last_tangent_vect
 
                     else:
 
-                        coefficiency_matrix[m][m+i-1] = B_spline[m+i+1][order]
+                        coefficiency_matrix[m][m+i-1] = B_spline[m+i+1]
 
     coefficiency_matrix_inv = np.linalg.inv(coefficiency_matrix)
 
