@@ -446,48 +446,17 @@ def fit_2d(data_point,data_point_value,point_delta,order=3):
 
     return fit_point
 
-def LRHB_spline_calculate(knot_vector,vector,order=3):
+def LRHB_spline_calculate(knot_vector_level,vector,spline_l,spline_r,order=3):
 
-    vector_position = vector_position_find(knot_vector,vector)
+    knot_vector_level = knot_vector_repeat(knot_vector_level,order)
 
-    if (vector_position[1] >= vector_position[3]):
+    LRHB_spline = [B_spline_calculate(knot_vector_level,vector,order)]
 
-        knot_vector_number = vector_position[0]
-        level = vector_position[1]        
+    len_LRHBS = len(LRHB_spline)
 
-    else:
+    for n in range(len_LRHBS):
 
-        knot_vector_number = vector_position[2]
-        level = vector_position[3]   
-
-    knot_vector_sequence = data_sequence_find(knot_vector,knot_vector_number,level)
-
-    knot_vector_sequence = knot_vector_sequence[0]
-
-    knot_vector_0 = knot_vector_repeat(knot_vector[0],order)
-
-    LRHB_spline = [B_spline_calculate(knot_vector_0,vector,order)[:,order]]
-
-    for l in range(1,level+1):
-
-        vector_sequence = vector_sequence_find(knot_vector,vector)
-
-        BS_split = B_spline_split(LRHB_spline[0][i],LRHB_spline[0][i+1],knot_vector,vector)
-
-        i1 = position_find(knot_vector_sequence[l-1],knot_vector_sequence[l][0])
-
-        knot_vector_l = knot_vector_sequence[l]
-
-        knot_vector_l.insert(0,knot_vector_sequence[l-1][i1])
-        knot_vector_l.append(knot_vector_sequence[l-1][i1])
-
-        B_spline = B_spline_calculate(knot_vector_summary,vector,order)
-
-        THB_spline_level = LRHB_spline[i]*B_spline[i+1][order]
-
-        LRHB_spline.insert(i+1,THB_spline_level)
-
-        LRHB_spline[i] = LRHB_spline[i]*B_spline[i][order]
+        LRHB_spline[n] = LRHB_spline[n]*(spline_l+spline_r)
 
     return LRHB_spline
 
