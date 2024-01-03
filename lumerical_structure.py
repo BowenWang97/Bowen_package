@@ -500,7 +500,7 @@ def SOI_grating_coupler_2d(path,filename,etch_depth,fill_factor,si_thickness,fib
     lsf_file.write('fiber_length = 100*um;\n')
     lsf_file.write('fiber_x = %.7f;\n'%fiber_x)
     lsf_file.write('fill_factor = %.2f;\n'%fill_factor)
-    lsf_file.write('frequency_points = 101;\n')
+    lsf_file.write('frequency_points = 100;\n')
     lsf_file.write('grating_number = 61;\n')
     lsf_file.write('grating_period = 0.67*um;\n')
     lsf_file.write('grating_width = 10*um;\n')
