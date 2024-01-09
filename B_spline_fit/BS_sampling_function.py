@@ -31,7 +31,7 @@ def exterior_algebra_max_to_zero_2d(data_point,point_delta,order=3):
 
     return max_point
 
-def exterior_algebra_max_to_zero_3d(data_point,data_point_value,point_delta,order=3):
+def exterior_algebra_max_to_zero_3d(data_point,data_point_value,point_delta,order=[3,3]):
 
     fit_point = BS.fit_3d(data_point,data_point_value,point_delta,order)
 
@@ -99,7 +99,7 @@ def exterior_algebra_max_to_zero_3d(data_point,data_point_value,point_delta,orde
 
     return max_point
 
-def exterior_algebra_max_to_zero_4d(data_point,data_point_value,point_delta,order=3):
+def exterior_algebra_max_to_zero_4d(data_point,data_point_value,point_delta,order=[3,3,3]):
 
     fit_point = BS.fit_4d(data_point,data_point_value,point_delta,order)
 
@@ -193,6 +193,176 @@ def exterior_algebra_max_to_zero_4d(data_point,data_point_value,point_delta,orde
                     max_point[0] = fit_point[0][n1]
                     max_point[1] = fit_point[1][n2]
                     max_point[2] = fit_point[2][n3]
+
+                    weight_0 = weight
+
+    return max_point
+
+def exterior_algebra_max_to_zero_and_max_to_inf_4d(data_point_1,data_point_value_1,data_point_2,data_point_value_2,point_delta,order=[3,3,3]):
+
+    fit_point_1 = BS.fit_4d(data_point_1,data_point_value_1,point_delta,order)
+    fit_point_2 = BS.fit_4d(data_point_2,data_point_value_2,point_delta,order)
+
+    len_fit_point_1 = len(fit_point_1[0])
+    len_fit_point_2 = len(fit_point_1[1])
+    len_fit_point_3 = len(fit_point_1[2])
+
+    max_point = np.zeros(3)
+    weight_0 = 0
+
+    for n1 in range(len_fit_point_1-1):
+
+        i1 = BS.position_find(data_point_1[0],fit_point_1[0][n1])
+
+        for n2 in range(len_fit_point_2-1):
+
+            i2 = BS.position_find(data_point_1[1],fit_point_1[1][n2])
+
+            for n3 in range(len_fit_point_3-1):
+
+                i3 = BS.position_find(data_point_1[2],fit_point_1[2][n3])
+
+                weight = 0
+
+                vector = np.zeros(shape = (4,8))
+                weight_1 = 0
+
+                vector[0][0] = fit_point_1[0][n1]-data_point_1[0][i1]
+                vector[0][1] = vector[0][0]
+                vector[0][2] = vector[0][0]
+                vector[0][3] = vector[0][0]
+                vector[0][4] = fit_point_1[0][n1]-data_point_1[0][i1+1]
+                vector[0][5] = vector[0][4]
+                vector[0][6] = vector[0][4]
+                vector[0][7] = vector[0][4]
+                vector[1][0] = fit_point_1[1][n2]-data_point_1[1][i2]
+                vector[1][1] = vector[1][0]
+                vector[1][2] = fit_point_1[1][n2]-data_point_1[1][i2+1]
+                vector[1][3] = vector[1][2]
+                vector[1][4] = vector[1][0]
+                vector[1][5] = vector[1][0]
+                vector[1][6] = vector[1][2]
+                vector[1][7] = vector[1][2]
+                vector[2][0] = fit_point_1[2][n3]-data_point_1[2][i3]
+                vector[2][1] = fit_point_1[2][n3]-data_point_1[2][i3+1]
+                vector[2][2] = vector[2][0]
+                vector[2][3] = vector[2][1]
+                vector[2][4] = vector[2][0]
+                vector[2][5] = vector[2][1]
+                vector[2][6] = vector[2][0]
+                vector[2][7] = vector[2][1]
+                vector[3][0] = fit_point_1[3][n1][n2][n3]-data_point_value_1[i1][i2][i3]
+                vector[3][1] = fit_point_1[3][n1][n2][n3]-data_point_value_1[i1][i2][i3+1]
+                vector[3][2] = fit_point_1[3][n1][n2][n3]-data_point_value_1[i1][i2+1][i3]
+                vector[3][3] = fit_point_1[3][n1][n2][n3]-data_point_value_1[i1][i2+1][i3+1]
+                vector[3][4] = fit_point_1[3][n1][n2][n3]-data_point_value_1[i1+1][i2][i3]
+                vector[3][5] = fit_point_1[3][n1][n2][n3]-data_point_value_1[i1+1][i2][i3+1]
+                vector[3][6] = fit_point_1[3][n1][n2][n3]-data_point_value_1[i1+1][i2+1][i3]
+                vector[3][7] = fit_point_1[3][n1][n2][n3]-data_point_value_1[i1+1][i2+1][i3+1]
+
+                matrix = np.zeros(shape = (4,4))
+
+                for vector_1 in range(5):
+
+                    for d in range(4):
+
+                        matrix[d][0] = vector[d][vector_1]
+
+                    for vector_2 in range(vector_1+1,6):
+
+                        for d in range(4):
+
+                            matrix[d][1] = vector[d][vector_2]
+
+                        for vector_3 in range(vector_2+1,7):
+
+                            for d in range(4):
+
+                                matrix[d][2] = vector[d][vector_3]
+
+                            for vector_4 in range(vector_3+1,8):
+
+                                for d in range(4):
+
+                                    matrix[d][3] = vector[d][vector_4]
+
+                                weight_1 = weight_1+abs(np.linalg.det(matrix))
+
+                weight_1 = -weight_1/fit_point_1[3][n1][n2][n3]\
+                
+                vector = np.zeros(shape = (4,8))
+                weight_2 = 0
+
+                vector[0][0] = fit_point_2[0][n1]-data_point_2[0][i1]
+                vector[0][1] = vector[0][0]
+                vector[0][2] = vector[0][0]
+                vector[0][3] = vector[0][0]
+                vector[0][4] = fit_point_2[0][n1]-data_point_2[0][i1+1]
+                vector[0][5] = vector[0][4]
+                vector[0][6] = vector[0][4]
+                vector[0][7] = vector[0][4]
+                vector[1][0] = fit_point_2[1][n2]-data_point_2[1][i2]
+                vector[1][1] = vector[1][0]
+                vector[1][2] = fit_point_2[1][n2]-data_point_2[1][i2+1]
+                vector[1][3] = vector[1][2]
+                vector[1][4] = vector[1][0]
+                vector[1][5] = vector[1][0]
+                vector[1][6] = vector[1][2]
+                vector[1][7] = vector[1][2]
+                vector[2][0] = fit_point_2[2][n3]-data_point_2[2][i3]
+                vector[2][1] = fit_point_2[2][n3]-data_point_2[2][i3+1]
+                vector[2][2] = vector[2][0]
+                vector[2][3] = vector[2][1]
+                vector[2][4] = vector[2][0]
+                vector[2][5] = vector[2][1]
+                vector[2][6] = vector[2][0]
+                vector[2][7] = vector[2][1]
+                vector[3][0] = fit_point_2[3][n1][n2][n3]-data_point_value_2[i1][i2][i3]
+                vector[3][1] = fit_point_2[3][n1][n2][n3]-data_point_value_2[i1][i2][i3+1]
+                vector[3][2] = fit_point_2[3][n1][n2][n3]-data_point_value_2[i1][i2+1][i3]
+                vector[3][3] = fit_point_2[3][n1][n2][n3]-data_point_value_2[i1][i2+1][i3+1]
+                vector[3][4] = fit_point_2[3][n1][n2][n3]-data_point_value_2[i1+1][i2][i3]
+                vector[3][5] = fit_point_2[3][n1][n2][n3]-data_point_value_2[i1+1][i2][i3+1]
+                vector[3][6] = fit_point_2[3][n1][n2][n3]-data_point_value_2[i1+1][i2+1][i3]
+                vector[3][7] = fit_point_2[3][n1][n2][n3]-data_point_value_2[i1+1][i2+1][i3+1]
+
+                matrix = np.zeros(shape = (4,4))
+
+                for vector_1 in range(5):
+
+                    for d in range(4):
+
+                        matrix[d][0] = vector[d][vector_1]
+
+                    for vector_2 in range(vector_1+1,6):
+
+                        for d in range(4):
+
+                            matrix[d][1] = vector[d][vector_2]
+
+                        for vector_3 in range(vector_2+1,7):
+
+                            for d in range(4):
+
+                                matrix[d][2] = vector[d][vector_3]
+
+                            for vector_4 in range(vector_3+1,8):
+
+                                for d in range(4):
+
+                                    matrix[d][3] = vector[d][vector_4]
+
+                                weight_2 = weight_2+abs(np.linalg.det(matrix))
+
+                weight_2 = -weight_2*np.exp(fit_point_2[3][n1][n2][n3])
+
+                weight = weight_1+weight_2
+
+                if (weight > weight_0):
+
+                    max_point[0] = fit_point_1[0][n1]
+                    max_point[1] = fit_point_1[1][n2]
+                    max_point[2] = fit_point_1[2][n3]
 
                     weight_0 = weight
 
@@ -357,7 +527,7 @@ def exterior_algebra_max_to_zero_5d(data_point,data_point_value,point_delta,orde
 
     return max_point
 
-def exterior_algebra_max_information_4d(data_point,data_point_value,point_delta,order=3):
+def exterior_algebra_max_information_4d(data_point,data_point_value,point_delta,order=[3,3,3]):
 
     fit_point = BS.fit_4d(data_point,data_point_value,point_delta,order)
 
@@ -456,7 +626,7 @@ def exterior_algebra_max_information_4d(data_point,data_point_value,point_delta,
 
     return max_point
 
-def exterior_algebra_max_information_5d(data_point,data_point_value,point_delta,order=3):
+def exterior_algebra_max_information_5d(data_point,data_point_value,point_delta,order=[3,3,3]):
 
     fit_point = BS.fit_5d(data_point,data_point_value,point_delta,order)
 
