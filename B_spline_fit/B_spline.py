@@ -60,7 +60,7 @@ def B_spline_point_calculate_2d(control_point,knot_vector,vector,order=3):
 
     return point
 
-def B_spline_point_calculate_3d(control_point,knot_vector,vector,order=3):
+def B_spline_point_calculate_3d(control_point,knot_vector,vector,order=[3,3]):
 
     size_control_point = control_point.shape
 
@@ -69,19 +69,19 @@ def B_spline_point_calculate_3d(control_point,knot_vector,vector,order=3):
 
     knot_vector = list(knot_vector)
 
-    knot_vector[0] = knot_vector_repeat(knot_vector[0],order)
-    knot_vector[1] = knot_vector_repeat(knot_vector[1],order)
+    knot_vector[0] = knot_vector_repeat(knot_vector[0],order[0])
+    knot_vector[1] = knot_vector_repeat(knot_vector[1],order[1])
 
-    B_spline_1 = B_spline_calculate(knot_vector[0],vector[0],order)
-    B_spline_2 = B_spline_calculate(knot_vector[1],vector[1],order)
+    B_spline_1 = B_spline_calculate(knot_vector[0],vector[0],order[0])
+    B_spline_2 = B_spline_calculate(knot_vector[1],vector[1],order[1])
 
     point = np.zeros(3)
 
-    for m1 in range(order+1):
+    for m1 in range(order[0]+1):
 
         point_1 = np.zeros(2)
 
-        for m2 in range(order+1):
+        for m2 in range(order[1]+1):
 
             if (i2+m2 >= size_control_point[2]):
 
@@ -104,7 +104,7 @@ def B_spline_point_calculate_3d(control_point,knot_vector,vector,order=3):
 
     return point
 
-def B_spline_point_calculate_4d(control_point,knot_vector,vector,order=3):
+def B_spline_point_calculate_4d(control_point,knot_vector,vector,order=[3,3,3]):
 
     size_control_point = control_point.shape
 
@@ -114,25 +114,25 @@ def B_spline_point_calculate_4d(control_point,knot_vector,vector,order=3):
 
     knot_vector = list(knot_vector)
 
-    knot_vector[0] = knot_vector_repeat(knot_vector[0],order)
-    knot_vector[1] = knot_vector_repeat(knot_vector[1],order)
-    knot_vector[2] = knot_vector_repeat(knot_vector[2],order)
+    knot_vector[0] = knot_vector_repeat(knot_vector[0],order[0])
+    knot_vector[1] = knot_vector_repeat(knot_vector[1],order[1])
+    knot_vector[2] = knot_vector_repeat(knot_vector[2],order[2])
 
-    B_spline_1 = B_spline_calculate(knot_vector[0],vector[0],order)
-    B_spline_2 = B_spline_calculate(knot_vector[1],vector[1],order)
-    B_spline_3 = B_spline_calculate(knot_vector[2],vector[2],order)
+    B_spline_1 = B_spline_calculate(knot_vector[0],vector[0],order[0])
+    B_spline_2 = B_spline_calculate(knot_vector[1],vector[1],order[1])
+    B_spline_3 = B_spline_calculate(knot_vector[2],vector[2],order[2])
 
     point = np.zeros(4)
 
-    for m1 in range(order+1):
+    for m1 in range(order[0]+1):
 
         point_1 = np.zeros(3)
 
-        for m2 in range(order+1):
+        for m2 in range(order[1]+1):
 
             point_2 = np.zeros(2)
 
-            for m3 in range(order+1):
+            for m3 in range(order[2]+1):
 
                 if (i3+m3 >= size_control_point[3]):
 
@@ -346,7 +346,7 @@ def control_point_calculate_2d(data_point,first_tangent_vector,last_tangent_vect
 
     return control_point
 
-def control_point_calculate_3d(data_point,data_point_value,knot_vector,order=3):
+def control_point_calculate_3d(data_point,data_point_value,knot_vector,order=[3,3]):
 
     len_data_point_1 = len(data_point[0])
     len_data_point_2 = len(data_point[1])
@@ -365,9 +365,9 @@ def control_point_calculate_3d(data_point,data_point_value,knot_vector,order=3):
         data_point_derivative = data_point_derivative_calculate(dp,knot_vector[0])
 
         first_tangent_vector = [data_point_derivative[0][0][1],data_point_derivative[1][0][1]]
-        last_tangent_vector = [data_point_derivative[0][len_data_point_1-order+1][1],data_point_derivative[1][len_data_point_1-order+1][1]]
+        last_tangent_vector = [data_point_derivative[0][len_data_point_1-order[0]+1][1],data_point_derivative[1][len_data_point_1-order[0]+1][1]]
 
-        cp = control_point_calculate_2d(dp,first_tangent_vector,last_tangent_vector,knot_vector[0],order)
+        cp = control_point_calculate_2d(dp,first_tangent_vector,last_tangent_vector,knot_vector[0],order[0])
 
         for n1 in range(len_data_point_1+2):
 
@@ -389,9 +389,9 @@ def control_point_calculate_3d(data_point,data_point_value,knot_vector,order=3):
         data_point_derivative = data_point_derivative_calculate(dp,knot_vector[1])
 
         first_tangent_vector = [data_point_derivative[0][0][1],data_point_derivative[1][0][1]]
-        last_tangent_vector = [data_point_derivative[0][len_data_point_2-order+1][1],data_point_derivative[1][len_data_point_2-order+1][1]]
+        last_tangent_vector = [data_point_derivative[0][len_data_point_2-order[1]+1][1],data_point_derivative[1][len_data_point_2-order[1]+1][1]]
 
-        cp = control_point_calculate_2d(dp,first_tangent_vector,last_tangent_vector,knot_vector[1],order)
+        cp = control_point_calculate_2d(dp,first_tangent_vector,last_tangent_vector,knot_vector[1],order[1])
 
         for n2 in range(len_data_point_2+2):
 
@@ -401,7 +401,7 @@ def control_point_calculate_3d(data_point,data_point_value,knot_vector,order=3):
 
     return control_point
 
-def control_point_calculate_4d(data_point,data_point_value,knot_vector,order=3):
+def control_point_calculate_4d(data_point,data_point_value,knot_vector,order=[3,3,3]):
 
     len_data_point_1 = len(data_point[0])
     len_data_point_2 = len(data_point[1])
@@ -422,7 +422,7 @@ def control_point_calculate_4d(data_point,data_point_value,knot_vector,order=3):
 
                 dpv[n1][n2] = data_point_value[n1][n2][n3]
 
-        cp = control_point_calculate_3d(dp,dpv,kt,order)
+        cp = control_point_calculate_3d(dp,dpv,kt,[order[0],order[1]])
 
         for n1 in range(len_data_point_1+2):
 
@@ -449,9 +449,9 @@ def control_point_calculate_4d(data_point,data_point_value,knot_vector,order=3):
             data_point_derivative = data_point_derivative_calculate(dp,knot_vector[2])
 
             first_tangent_vector = [data_point_derivative[0][0][1],data_point_derivative[1][0][1]]
-            last_tangent_vector = [data_point_derivative[0][len_data_point_3-order+1][1],data_point_derivative[1][len_data_point_3-order+1][1]]
+            last_tangent_vector = [data_point_derivative[0][len_data_point_3-order[2]+1][1],data_point_derivative[1][len_data_point_3-order[2]+1][1]]
 
-            cp = control_point_calculate_2d(dp,first_tangent_vector,last_tangent_vector,knot_vector[2],order)
+            cp = control_point_calculate_2d(dp,first_tangent_vector,last_tangent_vector,knot_vector[2],order[2])
 
             for n3 in range(len_data_point_3+2):
 
@@ -760,7 +760,7 @@ def fit_2d_ac(data_point,point_delta,order=3):
 
     return fit_point
 
-def fit_3d(data_point,data_point_value,point_delta,order=3):
+def fit_3d(data_point,data_point_value,point_delta,order=[3,3]):
 
     len_data_point_1 = len(data_point[0])
     len_data_point_2 = len(data_point[1])
@@ -843,7 +843,7 @@ def fit_3d(data_point,data_point_value,point_delta,order=3):
         dp[0][m1] = data_point[0][m1]
         dp[1][m1] = data_point_value[m1][len_data_point_2-1]
 
-    fit_point = fit_2d_3d(cp,dp,knot_vector[0],point_delta[0],order)
+    fit_point = fit_2d_3d(cp,dp,knot_vector[0],point_delta[0],order[0])
 
     for m1 in range(point_number_1+1):
 
@@ -863,7 +863,7 @@ def fit_3d(data_point,data_point_value,point_delta,order=3):
         dp[0][m2] = data_point[1][m2]
         dp[1][m2] = data_point_value[len_data_point_1-1][m2]
 
-    fit_point = fit_2d_3d(cp,dp,knot_vector[1],point_delta[1],order)
+    fit_point = fit_2d_3d(cp,dp,knot_vector[1],point_delta[1],order[1])
 
     for m2 in range(point_number_2+1):
 
@@ -871,7 +871,7 @@ def fit_3d(data_point,data_point_value,point_delta,order=3):
 
     return fit_point_1,fit_point_2,fit_point_value
 
-def fit_3d_4d(control_point,data_point,data_point_value,knot_vector,point_delta,order=3):
+def fit_3d_4d(control_point,data_point,data_point_value,knot_vector,point_delta,order=[3,3]):
 
     len_data_point_1 = len(data_point[0])
     len_data_point_2 = len(data_point[1])
@@ -950,7 +950,7 @@ def fit_3d_4d(control_point,data_point,data_point_value,knot_vector,point_delta,
         dp[0][m1] = data_point[0][m1]
         dp[1][m1] = data_point_value[m1][len_data_point_2-1]
 
-    fit_point = fit_2d_3d(cp,dp,knot_vector[0],point_delta[0],order)
+    fit_point = fit_2d_3d(cp,dp,knot_vector[0],point_delta[0],order[0])
 
     for m1 in range(point_number_1+1):
 
@@ -970,7 +970,7 @@ def fit_3d_4d(control_point,data_point,data_point_value,knot_vector,point_delta,
         dp[0][m2] = data_point[1][m2]
         dp[1][m2] = data_point_value[len_data_point_1-1][m2]
 
-    fit_point = fit_2d_3d(cp,dp,knot_vector[1],point_delta[1],order)
+    fit_point = fit_2d_3d(cp,dp,knot_vector[1],point_delta[1],order[1])
 
     for m2 in range(point_number_2+1):
 
@@ -978,7 +978,7 @@ def fit_3d_4d(control_point,data_point,data_point_value,knot_vector,point_delta,
 
     return fit_point_1,fit_point_2,fit_point_value
 
-def fit_4d(data_point,data_point_value,point_delta,order=3):
+def fit_4d(data_point,data_point_value,point_delta,order=[3,3,3]):
 
     len_data_point_1 = len(data_point[0])
     len_data_point_2 = len(data_point[1])
@@ -1094,7 +1094,7 @@ def fit_4d(data_point,data_point_value,point_delta,order=3):
 
             dpv[m1][m2] = data_point_value[m1][m2][len_data_point_3-1]
 
-    fit_point = fit_3d_4d(cp,dp,dpv,kt,pd,order)
+    fit_point = fit_3d_4d(cp,dp,dpv,kt,pd,[order[0],order[1]])
 
     for m1 in range(point_number_1+1):
 
@@ -1124,7 +1124,7 @@ def fit_4d(data_point,data_point_value,point_delta,order=3):
 
             dpv[m1][m3] = data_point_value[m1][len_data_point_2-1][m3]
 
-    fit_point = fit_3d_4d(cp,dp,dpv,kt,pd,order)
+    fit_point = fit_3d_4d(cp,dp,dpv,kt,pd,[order[0],order[2]])
 
     for m1 in range(point_number_1+1):
 
@@ -1154,7 +1154,7 @@ def fit_4d(data_point,data_point_value,point_delta,order=3):
 
             dpv[m2][m3] = data_point_value[len_data_point_1-1][m2][m3]
 
-    fit_point = fit_3d_4d(cp,dp,dpv,kt,pd,order)
+    fit_point = fit_3d_4d(cp,dp,dpv,kt,pd,[order[1],order[2]])
 
     for m2 in range(point_number_2+1):
 
