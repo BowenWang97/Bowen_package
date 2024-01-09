@@ -7,6 +7,38 @@ sys.path.append('C:\\Program Files\\Lumerical\\v232\\api\\python')
 
 import lumapi
 
+def bandwidth_calculate(efficiency,efficiency_condition,wavelength):
+
+    len_wavelength = len(wavelength)
+
+    for len_w in range(len_wavelength):
+
+        if (efficiency[len_w] >= efficiency_condition):
+
+            max_wavelength = efficiency[len_w]
+
+            break
+
+        else:
+
+            max_wavelength = 0
+
+    for len_w in range(len_wavelength):
+        
+        if (efficiency[len_wavelength-len_w] >= efficiency_condition):
+
+            min_wavelength = efficiency[len_wavelength-len_w]
+
+            break
+
+        else:
+
+            min_wavelength = 0
+
+    bandwidth = max_wavelength-min_wavelength
+
+    return bandwidth
+
 def SOI_chirped_grating_coupler_2d(path,filename,input_grating_period):
 
     lsf_file = open(path+"\\"+filename+".lsf","w+")
