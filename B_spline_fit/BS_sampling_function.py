@@ -354,7 +354,7 @@ def exterior_algebra_max_to_zero_and_max_to_inf_4d(data_point,data_point_value_1
 
                                 weight_2 = weight_2+abs(np.linalg.det(matrix))
 
-                weight_2 = weight_2*np.exp(fit_point_2[3][n1][n2][n3])
+                weight_2 = weight_2*np.exp(fit_point_2[3][n1][n2][n3]/100)
 
                 weight = weight_1+weight_2
 
