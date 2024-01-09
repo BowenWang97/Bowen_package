@@ -15,7 +15,7 @@ def bandwidth_calculate(efficiency,efficiency_condition,wavelength):
 
         if (efficiency[len_w] >= efficiency_condition):
 
-            max_wavelength = efficiency[len_w]
+            max_wavelength = wavelength[len_w]
 
             break
 
@@ -25,9 +25,9 @@ def bandwidth_calculate(efficiency,efficiency_condition,wavelength):
 
     for len_w in range(len_wavelength):
         
-        if (efficiency[len_wavelength-len_w] >= efficiency_condition):
+        if (efficiency[len_wavelength-len_w-1] >= efficiency_condition):
 
-            min_wavelength = efficiency[len_wavelength-len_w]
+            min_wavelength = wavelength[len_wavelength-len_w-1]
 
             break
 
