@@ -39,6 +39,21 @@ def bandwidth_calculate(efficiency,efficiency_condition,wavelength):
 
     return bandwidth
 
+def center_wavelength_calculate(efficiency,wavelength):
+
+    len_wavelength = len(wavelength)
+
+    efficiency_0 = -100
+
+    for len_w in range(len_wavelength):
+
+        if (efficiency[len_w] >= efficiency_0):
+
+            max_wavelength = wavelength[len_w]
+            efficiency_0 = efficiency[len_w]
+
+    return max_wavelength
+
 def SOI_chirped_grating_coupler_2d(path,filename,input_grating_period):
 
     lsf_file = open(path+"\\"+filename+".lsf","w+")
