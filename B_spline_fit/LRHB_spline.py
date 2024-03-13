@@ -81,6 +81,12 @@ def B_spline_point_derivative_calculate_2d(control_point,knot_vector,vector,orde
 
     return B_spline_point_derivative
 
+def block_find(data_point_level,data_point_squeeze):
+
+    b = data_point_level.index(data_point_squeeze)
+
+    return b
+
 def control_point_level_calculate_2d(data_point,first_tangent_vector,last_tangent_vector,knot_vector,order):
 
     size_data_point = data_point.shape
@@ -267,7 +273,7 @@ def data_point_derivative_level_calculate(control_point_level,knot_vector_level_
 
     return first_tangent_vector,last_tangent_vector
 
-def data_point_distance_calculate(data_point,data_point_value):
+def data_point_distance_calculate_2d(data_point,data_point_value):
 
     data_point_distance = math.sqrt((data_point[0]-data_point[1])*(data_point[0]-data_point[1])+(data_point_value[0]-data_point_value[1])*(data_point_value[0]-data_point_value[1]))
 
@@ -275,8 +281,8 @@ def data_point_distance_calculate(data_point,data_point_value):
 
 def data_point_position_find(data_point,data_point_number,data_point_block,data_point_level):
 
-    min_dif = max(data_point[0])-min(data_point[0])
-    max_dif = min(data_point[0])-max(data_point[0])
+    min_dif = max(data_point[0][0])-min(data_point[0][0])
+    max_dif = min(data_point[0][0])-max(data_point[0][0])
 
     for l in range(data_point_level+1):
 
@@ -311,7 +317,6 @@ def data_point_position_find(data_point,data_point_number,data_point_block,data_
 def data_sequence_find(data_point,number,block,level):
 
     data_point_sequence = []
-    data_point_number_sequence = []
 
     data_point_number = number
     data_point_block = block
@@ -319,10 +324,9 @@ def data_sequence_find(data_point,number,block,level):
 
     for l in range(level):
 
-        # data_point_number_sequence_level = [data_point_number]
-        data_point_sequence_level = [data_point[data_point_level][data_point_block][data_point_number]]        
+        data_point_sequence_level = data_point[data_point_level][data_point_block]
 
-        data_point_position = data_point_position_find(data_point,data_point_number,data_point_level)
+        data_point_position = data_point_position_find(data_point,data_point_number,data_point_block,data_point_level)
 
         left_number = data_point_position[0]
         left_block = data_point_position[1]
@@ -330,100 +334,126 @@ def data_sequence_find(data_point,number,block,level):
         right_number = data_point_position[3]
         right_block = data_point_position[4]
         right_level = data_point_position[5]
-            
-        if (data_point_position[2] == data_point_level or data_point_position[5] == data_point_level):
 
-            if (data_point_position[2] == data_point_level):
-
-                len_data_point_block = len(data_point[data_point_level])
-
-                for b in range(len_data_point_block):
-
-                    len_data_point = len(data_point[data_point_level][b])
-
-                    if (data_point_position[1] == data_point_block or data_point_position[4] == data_point_block):
-
-                        if (data_point_position[1] == data_point_block):
-
-                            if data_point[data_point_level][data_point_block][data_point_position[0]] not in data_point_sequence_level:
-
-                                # data_point_number_sequence_level.insert(0,data_point_position[0])
-                                data_point_sequence_level.insert(0,data_point[data_point_level][data_point_position[1]][data_point_position[0]])
-
-                            for n in range(len_data_point):
-
-                                data_point_position = data_point_position_find(data_point,data_point_position[0],data_point_position[1],data_point_position[2])
-
-                                left_number = data_point_position[0]
-                                left_block = data_point_position[1]
-                                left_level = data_point_position[2]
-
-                                if (data_point_position[1] == data_point_level):
-
-                                    if data_point[data_point_level][data_point_position[1]][data_point_position[0]] not in data_point_sequence_level:
-
-                                        # data_point_number_sequence_level.insert(0,data_point_position[0])
-                                        data_point_sequence_level.insert(0,data_point[data_point_level][data_point_position[1]][data_point_position[0]])
-
-                                else:
-
-                                    break
-
-            if(data_point_position[5] == data_point_level):
-                            
-                len_data_point_block = len(data_point[data_point_level])
-
-                for b in range(len_data_point_block):
-                            
-                    len_data_point = len(data_point[data_point_level][b])
-
-                    if (data_point_position[1] == data_point_block or data_point_position[4] == data_point_block):
-                            
-                        if (data_point_position[1] == data_point_block):
-
-                            if data_point_position[2] not in data_point_number_sequence_level:
-
-                                data_point_number_sequence_level.append(data_point_position[2])
-                                data_point_sequence_level.append(data_point[data_point_level][data_point_position[2]])
-
-                            for n in range(len_data_point_level):
-
-                                data_point_position = data_point_position_find(data_point,data_point_position[2],data_point_position[3])
-
-                                right_number = data_point_position[2]
-                                right_level = data_point_position[3]
-
-                                if (data_point_position[3] == data_point_level):
-
-                                    if data_point_position[2] not in data_point_number_sequence_level:
-
-                                        data_point_number_sequence_level.append(data_point_position[2])
-                                        data_point_sequence_level.append(data_point[data_point_level][data_point_position[2]])
-
-                                else:
-
-                                    break
-
-        if (left_level >= right_level):
+        if (left_level == data_point_level-1):
 
             data_point_number = left_number
+            data_point_block = left_block
             data_point_level = left_level
 
-        elif (left_level < right_level):
+        else:
 
             data_point_number = right_number
+            data_point_block = right_block
             data_point_level = right_level
 
         data_point_sequence.insert(0,data_point_sequence_level)
-        data_point_number_sequence.insert(0,data_point_number_sequence_level)
 
-    data_point_number_sequence_level = [left_number,right_number]
-    data_point_sequence_level = [data_point[0][left_number],data_point[0][right_number]]
+    data_point_sequence_level = data_point[0][0]
 
     data_point_sequence.insert(0,data_point_sequence_level)
-    data_point_number_sequence.insert(0,data_point_number_sequence_level)
+
+    #     else:
+
+            # data_point_number_sequence_level = [data_point_number]
+    #         data_point_sequence_level = [data_point[data_point_level][data_point_block][data_point_number]]        
+
+    #         data_point_position = data_point_position_find(data_point,data_point_number,data_point_level)
+
+    #         left_number = data_point_position[0]
+    #         left_block = data_point_position[1]
+    #         left_level = data_point_position[2]
+    #         right_number = data_point_position[3]
+    #         right_block = data_point_position[4]
+    #         right_level = data_point_position[5]
+                
+    #         if (data_point_position[2] == data_point_level or data_point_position[5] == data_point_level):
+
+    #             if (data_point_position[2] == data_point_level):
+
+    #                 len_data_point_block = len(data_point[data_point_level])
+
+    #                 for b in range(len_data_point_block):
+
+    #                     len_data_point = len(data_point[data_point_level][b])
+
+    #                     if (data_point_position[1] == data_point_block or data_point_position[4] == data_point_block):
+
+    #                         if (data_point_position[1] == data_point_block):
+
+    #                             if data_point[data_point_level][data_point_block][data_point_position[0]] not in data_point_sequence_level:
+
+    #                                 # data_point_number_sequence_level.insert(0,data_point_position[0])
+    #                                 data_point_sequence_level.insert(0,data_point[data_point_level][data_point_position[1]][data_point_position[0]])
+
+    #                             for n in range(len_data_point):
+
+    #                                 data_point_position = data_point_position_find(data_point,data_point_position[0],data_point_position[1],data_point_position[2])
+
+    #                                 left_number = data_point_position[0]
+    #                                 left_block = data_point_position[1]
+    #                                 left_level = data_point_position[2]
+
+    #                                 if (data_point_position[1] == data_point_level):
+
+    #                                     if data_point[data_point_level][data_point_position[1]][data_point_position[0]] not in data_point_sequence_level:
+
+    #                                         # data_point_number_sequence_level.insert(0,data_point_position[0])
+    #                                         data_point_sequence_level.insert(0,data_point[data_point_level][data_point_position[1]][data_point_position[0]])
+
+    #                                 else:
+
+    #                                     break
+
+    #             if(data_point_position[5] == data_point_level):
+                                
+    #                 len_data_point_block = len(data_point[data_point_level])
+
+    #                 for b in range(len_data_point_block):
+                                
+    #                     len_data_point = len(data_point[data_point_level][b])
+
+    #                     if (data_point_position[1] == data_point_block or data_point_position[4] == data_point_block):
+                                
+    #                         if (data_point_position[1] == data_point_block):
+
+    #                             if data_point_position[2] not in data_point_number_sequence_level:
+
+    #                                 data_point_number_sequence_level.append(data_point_position[2])
+    #                                 data_point_sequence_level.append(data_point[data_point_level][data_point_position[2]])
+
+    #                             for n in range(len_data_point_level):
+
+    #                                 data_point_position = data_point_position_find(data_point,data_point_position[2],data_point_position[3])
+
+    #                                 right_number = data_point_position[2]
+    #                                 right_level = data_point_position[3]
+
+    #                                 if (data_point_position[3] == data_point_level):
+
+    #                                     if data_point_position[2] not in data_point_number_sequence_level:
+
+    #                                         data_point_number_sequence_level.append(data_point_position[2])
+    #                                         data_point_sequence_level.append(data_point[data_point_level][data_point_position[2]])
+
+    #                                 else:
+
+    #                                     break
+
+    #         if (left_level >= right_level):
+
+    #             data_point_number = left_number
+    #             data_point_level = left_level
+
+    #         elif (left_level < right_level):
+
+    #             data_point_number = right_number
+    #             data_point_level = right_level
+
+    #         data_point_sequence.insert(0,data_point_sequence_level)
+    #         data_point_number_sequence.insert(0,data_point_number_sequence_level)
         
-    return data_point_sequence,data_point_number_sequence
+    return data_point_sequence
 
 def data_summary_2d(data,data_point,level):
 
@@ -713,63 +743,172 @@ def knot_vector_calculate_2d(data_point,data_point_value):
 
         if (l == 0):
 
-            len_data_point = len(data_point[0])
+            len_data_point = len(data_point[0][0])
 
-            knot_vector = np.zeros(len_data_point)
+            knot_vector = list(np.zeros(len_data_point))
 
             for n in range(len_data_point-1):
 
-                knot_vector[n+1] = knot_vector[n]+data_point_distance_calculate([data_point[0][n+1],data_point[0][n]],[data_point_value[0][n+1],data_point_value[0][n]])
+                knot_vector[n+1] = knot_vector[n]+data_point_distance_calculate_2d([data_point[0][0][n+1],data_point[0][0][n]],[data_point_value[0][0][n+1],data_point_value[0][0][n]])
             
-            knot_vector = [knot_vector]
+            knot_vector = [[knot_vector]]
 
         else:
 
-            len_data_point = len(data_point[l])
+            len_data_point_block = len(data_point[l])
+            
+            knot_vector_level = []
 
-            knot_vector_level = np.zeros(len_data_point)
+            for b in range(len_data_point_block):
 
-            for n in range(len_data_point):
+                len_data_point = len(data_point[l][b])
+                
+                knot_vector_block = list(np.zeros(len_data_point))
 
-                data_sequence = data_sequence_find(data_point,n,l)
+                data_point_position = data_point_position_find(data_point,0,b,l)
 
-                data_point_number_sequence = data_sequence[1]
-                data_point_sequence = data_sequence[0]
+                if (data_point_position[2] != l-2 and data_point_position[5] != l-2):
 
-                i1 = position_find(data_point[l-1],data_point[l][n])
-                i2 = position_find(data_point[l],data_point[l][n])
+                    for n in range(len_data_point):
 
-                distance_sum = 0
+                        data_point_sequence = data_sequence_find(data_point,n,b,l)
 
-                for nd in range(len(data_point_sequence[l])+1):
+                        i1 = position_find(data_point_sequence[l-1],data_point_sequence[l][n])
+                        i2 = position_find(data_point_sequence[l],data_point_sequence[l][n])
 
-                    if (nd == 0):
+                        b1 = block_find(data_point[l-1],list(np.squeeze(data_point_sequence[l-1])))
 
-                        dn = data_point_number_sequence[l][nd]
+                        distance_sum = 0
 
-                        distance_sum = distance_sum+data_point_distance_calculate([data_point[l-1][i1],data_point[l][dn]],[data_point_value[l-1][i1],data_point_value[l][dn]])
+                        for nd in range(len(data_point_sequence[l])+1):
 
-                        if (dn == i2):
+                            if (nd == 0):
 
-                            knot_distance = distance_sum
-                        
-                    elif (nd == len(data_point_sequence[l])):
+                                distance_sum = distance_sum+data_point_distance_calculate_2d([data_point[l-1][b1][i1],data_point[l][b][nd]],[data_point_value[l-1][b1][i1],data_point_value[l][b][nd]])
 
-                        dn = data_point_number_sequence[l][nd-1]
+                                if (nd == i2):
 
-                        distance_sum = distance_sum+data_point_distance_calculate([data_point[l][dn],data_point[l-1][i1+1]],[data_point_value[l][dn],data_point_value[l-1][i1+1]])
+                                    knot_distance = distance_sum
+                                
+                            elif (nd == len(data_point_sequence[l])):
 
-                    else:
+                                distance_sum = distance_sum+data_point_distance_calculate_2d([data_point[l][b][nd-1],data_point[l-1][b1][i1+1]],[data_point_value[l][b][nd-1],data_point_value[l-1][b1][i1+1]])
 
-                        dn = data_point_number_sequence[l][nd]
+                            else:
 
-                        distance_sum = distance_sum+data_point_distance_calculate([data_point[l][dn-1],data_point[l][dn]],[data_point_value[l][dn-1],data_point_value[l][dn]])
+                                distance_sum = distance_sum+data_point_distance_calculate_2d([data_point[l][b][nd-1],data_point[l][b][nd]],[data_point_value[l][b][nd-1],data_point_value[l][b][nd]])
 
-                        if (dn == i2):
+                                if (nd == i2):
 
-                            knot_distance = distance_sum
+                                    knot_distance = distance_sum
 
-                knot_vector_level[n] = knot_vector[l-1][i1]+(knot_vector[l-1][i1+1]-knot_vector[l-1][i1])*knot_distance/distance_sum
+                        knot_vector_block[n] = knot_vector[l-1][b1][i1]+(knot_vector[l-1][b1][i1+1]-knot_vector[l-1][b1][i1])*knot_distance/distance_sum
+
+                else:
+
+                    for n in range(len_data_point):
+
+                        data_point_sequence = data_sequence_find(data_point,n,b,l)
+
+                        i2 = position_find(data_point_sequence[l],data_point_sequence[l][n])
+
+                        data_point_position = data_point_position_find(data_point,n,b,l)
+
+                        ll = 0
+                        rl = 0
+
+                        if (data_point_position[2] != l and data_point_position[5] != l):
+
+                            ln = data_point_position[0]
+                            lb = data_point_position[1]
+                            ll = data_point_position[2]
+                            rn = data_point_position[3]
+                            rb = data_point_position[4]
+                            rl = data_point_position[5]
+
+                        elif (data_point_position[2] != l and data_point_position[5] == l):
+
+                            ln = data_point_position[0]
+                            lb = data_point_position[1]
+                            ll = data_point_position[2]
+
+                            while (rl == 0):
+
+                                data_point_position = data_point_position_find(data_point,data_point_position[3],data_point_position[4],data_point_position[5])
+
+                                if (data_point_position[5] != l):
+
+                                    rn = data_point_position[3]
+                                    rb = data_point_position[4]
+                                    rl = data_point_position[5]
+
+                        elif (data_point_position[2] == l and data_point_position[5] != l):
+
+                            rn = data_point_position[3]
+                            rb = data_point_position[4]
+                            rl = data_point_position[5]
+
+                            while (rl == 0):
+
+                                data_point_position = data_point_position_find(data_point,data_point_position[0],data_point_position[1],data_point_position[2])
+
+                                if (data_point_position[2] != l):
+
+                                    ln = data_point_position[0]
+                                    lb = data_point_position[1]
+                                    ll = data_point_position[2]
+
+                        else:
+
+                            while (rl == 0):
+
+                                data_point_position = data_point_position_find(data_point,data_point_position[3],data_point_position[4],data_point_position[5])
+
+                                if (data_point_position[5] != l):
+
+                                    rn = data_point_position[3]
+                                    rb = data_point_position[4]
+                                    rl = data_point_position[5]
+
+                            while (rl == 0):
+
+                                data_point_position = data_point_position_find(data_point,data_point_position[0],data_point_position[1],data_point_position[2])
+
+                                if (data_point_position[5] != l):
+
+                                    ln = data_point_position[0]
+                                    lb = data_point_position[1]
+                                    ll = data_point_position[2]
+                                    
+                        distance_sum = 0
+
+                        for nd in range(len(data_point_sequence[l])+1):
+
+                            if (nd == 0):
+
+                                distance_sum = distance_sum+data_point_distance_calculate_2d([data_point[ll][lb][ln],data_point[l][b][nd]],[data_point_value[ll][lb][ln],data_point_value[l][b][nd]])
+
+                                if (nd == i2):
+
+                                    knot_distance = distance_sum
+                                
+                            elif (nd == len(data_point_sequence[l])):
+
+                                distance_sum = distance_sum+data_point_distance_calculate_2d([data_point[l][b][nd-1],data_point[rl][rb][rn]],[data_point_value[l][b][nd-1],data_point_value[rl][rb][rn]])
+
+                            else:
+
+                                distance_sum = distance_sum+data_point_distance_calculate_2d([data_point[l][b][nd-1],data_point[l][b][nd]],[data_point_value[l][b][nd-1],data_point_value[l][b][nd]])
+
+                                if (nd == i2):
+
+                                    knot_distance = distance_sum
+
+                        knot_vector_block[n] = knot_vector[ll][lb][ln]+(knot_vector[rl][rb][rn]-knot_vector[ll][lb][ln])*knot_distance/distance_sum
+
+                knot_vector_level.append(knot_vector_block)
+
+            knot_vector.append(knot_vector_level)
 
         # elif (l == 1):
 
@@ -801,8 +940,6 @@ def knot_vector_calculate_2d(data_point,data_point_value):
         #         rl = data_point_position[3]
 
         #         knot_vector_level[n] = knot_vector[ll][ln]+(knot_vector[rl][rn]-knot_vector[ll][ln])*math.sqrt((data_point[l][n]-data_point[ll][ln])*(data_point[l][n]-data_point[ll][ln])+(data_point_value[l][n]-data_point_value[ll][ln])*(data_point_value[l][n]-data_point_value[ll][ln]))/(math.sqrt((data_point[l][n]-data_point[ll][ln])*(data_point[l][n]-data_point[ll][ln])+(data_point_value[l][n]-data_point_value[ll][ln])*(data_point_value[l][n]-data_point_value[ll][ln]))+math.sqrt((data_point[l][n]-data_point[rl][rn])*(data_point[l][n]-data_point[rl][rn])+(data_point_value[l][n]-data_point_value[rl][rn])*(data_point_value[l][n]-data_point_value[rl][rn])))
-
-            knot_vector.append(knot_vector_level)
 
     return knot_vector
 
