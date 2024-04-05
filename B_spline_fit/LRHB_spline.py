@@ -359,9 +359,11 @@ def data_sequence_find(data_point,number,block,level):
 
                 while True:
 
+                    print(data_point_sequence,data_point_number,data_point_block,data_point_level,data_point_position[0],data_point_position[1],data_point_position[2])
+
                     data_point_position = data_point_position_find(data_point,data_point_position[0],data_point_position[1],data_point_position[2])
 
-                    if (data_point_position[2] == data_point_level-1):
+                    if (data_point_position[2] <= data_point_level-1):
 
                         data_point_number = data_point_position[0]
                         data_point_block = data_point_position[1]
@@ -375,7 +377,7 @@ def data_sequence_find(data_point,number,block,level):
 
                     data_point_position = data_point_position_find(data_point,data_point_position[3],data_point_position[4],data_point_position[5])
 
-                    if (data_point_position[5] == data_point_level-1):
+                    if (data_point_position[5] <= data_point_level-1):
 
                         data_point_number = data_point_position[3]
                         data_point_block = data_point_position[4]
@@ -758,11 +760,25 @@ def LRHB_control_point_level_calculate_2d(data_point,first_tangent_vector,last_t
 
     return list(control_point)
 
-def LRHB_spline_calculate(knot_vector,vector,level):
+def LRHB_spline_calculate(knot_vector,vector):
 
-    vector_sequence = vector_sequence_find(knot_vector,vector)
+    vector_position = vector_position_find(knot_vector,vector)
 
-    knot_vector_sequence = vector_sequence[0]
+    if (vector_position[2] > vector_position[5]):
+
+        number = vector_position[0]
+        block = vector_position[1]
+        level = vector_position[2]
+
+    else:
+
+        number = vector_position[3]
+        block = vector_position[4]
+        level = vector_position[5]
+
+    knot_vector_sequence = data_sequence_find(knot_vector,number,block,level)
+
+    level = len(knot_vector_sequence)
 
     for l in range(level):
 
@@ -1164,53 +1180,60 @@ def position_find(knot_vector,vector):
 
 def vector_position_find(knot_vector,vector):
 
-    level_knot_vector = len(knot_vector)
+    knot_vector_level = len(knot_vector)
 
-    min_dif = max(knot_vector[0])
-    max_dif = -max(knot_vector[0])
+    min_dif = max(knot_vector[0][0])
+    max_dif = -max(knot_vector[0][0])
 
-    for l in range(level_knot_vector):
+    for l in range(knot_vector_level):
 
-        len_knot_vector = len(knot_vector[l])
+        len_knot_vector_block = len(knot_vector[l])
 
-        for n in range(len_knot_vector):
+        for b in range(len_knot_vector_block):
 
-            dif = vector-knot_vector[l][n]
+            len_knot_vector = len(knot_vector[l][b])
 
-            if (dif >= 0 and dif <= min_dif):
+            for n in range(len_knot_vector):
 
-                min_dif = dif
+                dif = vector-knot_vector[l][b][n]
 
-                left_number = n
-                left_level = l
+                if (dif >= 0 and dif <= min_dif):
 
-            elif (dif < 0 and dif > max_dif):
+                    min_dif = dif
 
-                max_dif = dif
+                    left_number = n
+                    left_block = b
+                    left_level = l
 
-                right_number = n
-                right_level = l
+                elif (dif < 0 and dif > max_dif):
 
-    return left_number,left_level,right_number,right_level
+                    max_dif = dif
+
+                    right_number = n
+                    right_block = b
+                    right_level = l
+
+    return left_number,left_block,left_level,right_number,right_block,right_level
 
 def vector_sequence_find(knot_vector,vector):
 
     knot_vector_sequence = []
-    knot_vector_number_sequence = []
 
     vector_position = vector_position_find(knot_vector,vector)
 
     if (vector_position[1] >= vector_position[3]):
 
         knot_vector_number = vector_position[0]
-        knot_vector_level = vector_position[1]
-        level = vector_position[1]        
+        knot_vector_block = vector_position[1]
+        knot_vector_level = vector_position[2]
+        level = vector_position[2]        
 
     else:
 
-        knot_vector_number = vector_position[2]
-        knot_vector_level = vector_position[3]
-        level = vector_position[3]        
+        knot_vector_number = vector_position[3]
+        knot_vector_block = vector_position[4]
+        knot_vector_level = vector_position[5]
+        level = vector_position[5]        
 
     for l in range(level):
 
@@ -1222,13 +1245,15 @@ def vector_sequence_find(knot_vector,vector):
         vector_position = data_point_position_find(knot_vector,knot_vector_number,knot_vector_level)
 
         left_number = vector_position[0]
-        left_level = vector_position[1]
-        right_number = vector_position[2]
-        right_level = vector_position[3]
+        left_block = vector_position[1]
+        left_level = vector_position[2]
+        right_number = vector_position[3]
+        right_block = vector_position[4]
+        right_level = vector_position[5]
             
-        if (vector_position[1] == knot_vector_level or vector_position[3] == knot_vector_level):
+        if (vector_position[2] == knot_vector_level or vector_position[5] == knot_vector_level):
 
-            if (vector_position[1] == knot_vector_level):
+            if (vector_position[2] == knot_vector_level):
 
                 if vector_position[0] not in knot_vector_number_sequence_level:
 
@@ -1289,9 +1314,7 @@ def vector_sequence_find(knot_vector,vector):
             knot_vector_level = right_level
 
         knot_vector_sequence.insert(0,knot_vector_sequence_level)
-        knot_vector_number_sequence.insert(0,knot_vector_number_sequence_level)
 
     knot_vector_sequence.insert(0,knot_vector[0])
-    knot_vector_number_sequence.insert(0,list(np.arange(len(knot_vector[0]))))
         
-    return knot_vector_sequence,knot_vector_number_sequence
+    return knot_vector_sequence
