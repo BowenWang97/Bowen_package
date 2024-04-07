@@ -355,35 +355,48 @@ def data_sequence_find(data_point,number,block,level):
 
         else:
 
-            if (data_point_position[2] == data_point_level):
+            left_data_point_level = 0
+            right_data_point_level = 0
+
+            if (data_point_position[2] != 0):
 
                 while True:
-
-                    print(data_point_sequence,data_point_number,data_point_block,data_point_level,data_point_position[0],data_point_position[1],data_point_position[2])
 
                     data_point_position = data_point_position_find(data_point,data_point_position[0],data_point_position[1],data_point_position[2])
 
                     if (data_point_position[2] <= data_point_level-1):
 
-                        data_point_number = data_point_position[0]
-                        data_point_block = data_point_position[1]
-                        data_point_level = data_point_position[2]
+                        left_data_point_number = data_point_position[0]
+                        left_data_point_block = data_point_position[1]
+                        left_data_point_level = data_point_position[2]
 
                         break
 
-            else:
-
+            if (data_point_position[5] != 0):
+            
                 while True:
 
                     data_point_position = data_point_position_find(data_point,data_point_position[3],data_point_position[4],data_point_position[5])
 
                     if (data_point_position[5] <= data_point_level-1):
 
-                        data_point_number = data_point_position[3]
-                        data_point_block = data_point_position[4]
-                        data_point_level = data_point_position[5]
+                        right_data_point_number = data_point_position[3]
+                        right_data_point_block = data_point_position[4]
+                        right_data_point_level = data_point_position[5]
 
                         break
+
+            if (left_data_point_level > right_data_point_level):
+
+                data_point_number = left_data_point_number
+                data_point_block = left_data_point_block
+                data_point_level = left_data_point_level
+
+            else:
+
+                data_point_number = right_data_point_number
+                data_point_block = right_data_point_block
+                data_point_level = right_data_point_level
 
         data_point_sequence.insert(0,data_point_sequence_level)
 
