@@ -31,7 +31,7 @@ def B_spline_calculate(knot_vector,vector,order=3):
 
                 B_spline[k][n] = (vector-knot_vector[n])/(knot_vector[n+k]-knot_vector[n])*B_spline[k-1][n]+(knot_vector[n+k+1]-vector)/(knot_vector[n+k+1]-knot_vector[n+1])*B_spline[k-1][n+1]
 
-    return B_spline[order]
+    return list(B_spline[order])
 
 def B_spline_point_calculate_2d(control_point,knot_vector,vector,order=3):
 
@@ -1864,12 +1864,13 @@ def knot_vector_derivative_calculate(knot_vector,derivative_order=1):
 def knot_vector_repeat(knot_vector,order=3):
 
     max_knot_vector = max(knot_vector)
-
+    min_knot_vector = min(knot_vector)
+    
     knot_vector = list(knot_vector)
 
     for k in range(order):
         
-        knot_vector.insert(0,0)
+        knot_vector.insert(0,min_knot_vector)
         knot_vector.append(max_knot_vector)
 
     return knot_vector
