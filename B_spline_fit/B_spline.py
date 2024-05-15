@@ -56,6 +56,8 @@ def B_spline_point_calculate_2d(control_point,knot_vector,vector,order=3):
 
             else:
 
+                print(control_point[d][i+m]*B_spline[i+m])
+
                 point[d] = point[d]+control_point[d][i+m]*B_spline[i+m]
 
     return point
