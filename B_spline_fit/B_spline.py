@@ -56,8 +56,6 @@ def B_spline_point_calculate_2d(control_point,knot_vector,vector,order=3):
 
             else:
 
-                print(control_point[d][i+m]*B_spline[i+m])
-
                 point[d] = point[d]+control_point[d][i+m]*B_spline[i+m]
 
     return point
@@ -281,17 +279,17 @@ def control_point_calculate_2d(data_point,first_tangent_vector,last_tangent_vect
     knot_vector = knot_vector_repeat(knot_vector,order)
 
     for d in range(2):
-        
+
         control_point[d][0] = data_point[d][0]
-        control_point[d][1] = control_point[d][0]+knot_vector[1+order]*first_tangent_vector[d]/order
+        control_point[d][1] = control_point[d][0]+knot_vector[1+order]*first_tangent_vector[d]/order/max_knot_vector
         control_point[d][len_data_point+1] = data_point[d][len_data_point-1]
-        control_point[d][len_data_point] = control_point[d][len_data_point+1]-(max_knot_vector-knot_vector[len_data_point+order-2])*last_tangent_vector[d]/order
+        control_point[d][len_data_point] = control_point[d][len_data_point+1]-(max_knot_vector-knot_vector[len_data_point+order-2])*last_tangent_vector[d]/order/max_knot_vector
 
     data_point_matrix = np.delete(data_point,len_data_point-1,1)
     data_point_matrix = np.delete(data_point_matrix,0,1)
 
     size_data_point_matrix  = data_point_matrix.shape
-    len_data_point_matrix  = size_data_point_matrix [1]
+    len_data_point_matrix  = size_data_point_matrix[1]
 
     control_point_matrix = np.zeros(shape = (2,len_data_point_matrix))
     coefficiency_matrix = np.zeros(shape = (len_data_point_matrix,len_data_point_matrix))
@@ -364,10 +362,10 @@ def control_point_calculate_3d(data_point,data_point_value,knot_vector,order=[3,
             dp[0][n1] = data_point[0][n1]
             dp[1][n1] = data_point_value[n1][n2]
         
-        data_point_derivative = data_point_derivative_calculate(dp,knot_vector[0])
+        tangent_vector = tangent_vector_calculate(dp[0],dp[1])
 
-        first_tangent_vector = [data_point_derivative[0][0][1],data_point_derivative[1][0][1]]
-        last_tangent_vector = [data_point_derivative[0][len_data_point_1-order[0]+1][1],data_point_derivative[1][len_data_point_1-order[0]+1][1]]
+        first_tangent_vector = tangent_vector[0]
+        last_tangent_vector = tangent_vector[1]
 
         cp = control_point_calculate_2d(dp,first_tangent_vector,last_tangent_vector,knot_vector[0],order[0])
 
@@ -388,10 +386,10 @@ def control_point_calculate_3d(data_point,data_point_value,knot_vector,order=[3,
             dp[0][n2] = control_point_1[1][n1][n2]
             dp[1][n2] = control_point_1[2][n1][n2]
 
-        data_point_derivative = data_point_derivative_calculate(dp,knot_vector[1])
+        tangent_vector = tangent_vector_calculate(dp[0],dp[1])
 
-        first_tangent_vector = [data_point_derivative[0][0][1],data_point_derivative[1][0][1]]
-        last_tangent_vector = [data_point_derivative[0][len_data_point_2-order[1]+1][1],data_point_derivative[1][len_data_point_2-order[1]+1][1]]
+        first_tangent_vector = tangent_vector[0]
+        last_tangent_vector = tangent_vector[1]
 
         cp = control_point_calculate_2d(dp,first_tangent_vector,last_tangent_vector,knot_vector[1],order[1])
 
@@ -448,10 +446,10 @@ def control_point_calculate_4d(data_point,data_point_value,knot_vector,order=[3,
                 dp[0][n3] = control_point_1[2][n1][n2][n3]
                 dp[1][n3] = control_point_1[3][n1][n2][n3]
 
-            data_point_derivative = data_point_derivative_calculate(dp,knot_vector[2])
+            tangent_vector = tangent_vector_calculate(dp[0],dp[1])
 
-            first_tangent_vector = [data_point_derivative[0][0][1],data_point_derivative[1][0][1]]
-            last_tangent_vector = [data_point_derivative[0][len_data_point_3-order[2]+1][1],data_point_derivative[1][len_data_point_3-order[2]+1][1]]
+            first_tangent_vector = tangent_vector[0]
+            last_tangent_vector = tangent_vector[1]
 
             cp = control_point_calculate_2d(dp,first_tangent_vector,last_tangent_vector,knot_vector[2],order[2])
 
@@ -517,10 +515,10 @@ def control_point_calculate_5d(data_point,data_point_value,knot_vector,order=3):
                     dp[0][n4] = control_point_1[3][n1][n2][n3][n4]
                     dp[1][n4] = control_point_1[4][n1][n2][n3][n4]
 
-                data_point_derivative = data_point_derivative_calculate(dp,knot_vector[3])
+                tangent_vector = tangent_vector_calculate(dp[0],dp[1])
 
-                first_tangent_vector = [data_point_derivative[0][0][1],data_point_derivative[1][0][1]]
-                last_tangent_vector = [data_point_derivative[0][len_data_point_4-order+1][1],data_point_derivative[1][len_data_point_4-order+1][1]]
+                first_tangent_vector = tangent_vector[0]
+                last_tangent_vector = tangent_vector[1]
 
                 cp = control_point_calculate_2d(dp,first_tangent_vector,last_tangent_vector,knot_vector[3],order)
 
@@ -631,14 +629,14 @@ def fit_2d(data_point,point_delta,order=3):
 
     point_number = int((max(data_point[0])-min(data_point[0]))/point_delta)
 
-    vector_delta = point_delta/50
+    vector_delta = point_delta/10
 
     knot_vector = knot_vector_calculate_2d(data_point)
 
-    data_point_derivative = data_point_derivative_calculate(data_point,knot_vector)
+    tangent_vector = tangent_vector_calculate(data_point[0],data_point[1])
 
-    first_tangent_vector = [data_point_derivative[0][0][1],data_point_derivative[1][0][1]]
-    last_tangent_vector = [data_point_derivative[0][len_data_point-order+1][1],data_point_derivative[1][len_data_point-order+1][1]]
+    first_tangent_vector = tangent_vector[0]
+    last_tangent_vector = tangent_vector[1]
 
     control_point = control_point_calculate_2d(data_point,first_tangent_vector,last_tangent_vector,knot_vector,order)
 
@@ -678,7 +676,7 @@ def fit_2d_3d(control_point,data_point,knot_vector,point_delta,order=3):
 
     point_number = int((max(data_point[0])-min(data_point[0]))/point_delta)
 
-    vector_delta = point_delta/50
+    vector_delta = point_delta/10
 
     vector_number = int(max(knot_vector)/vector_delta)
 
@@ -721,10 +719,10 @@ def fit_2d_ac(data_point,point_delta,order=3):
 
     max_knot_vector = max(knot_vector)
 
-    data_point_derivative = data_point_derivative_calculate(data_point,knot_vector)
+    tangent_vector = tangent_vector_calculate(data_point[0],data_point[1])
 
-    first_tangent_vector = [data_point_derivative[0][0][1],data_point_derivative[1][0][1]]
-    last_tangent_vector = [data_point_derivative[0][len_data_point-order+1][1],data_point_derivative[1][len_data_point-order+1][1]]
+    first_tangent_vector = tangent_vector[0]
+    last_tangent_vector = tangent_vector[1]
 
     control_point = control_point_calculate_2d(data_point,first_tangent_vector,last_tangent_vector,knot_vector,order)
 
@@ -1974,10 +1972,10 @@ def tangent_vector_calculate(data_point,data_point_value):
     first_tangent_vector = np.zeros(2)
     last_tangent_vector = np.zeros(2)
 
-    first_tangent_vector[0] = (data_point[1]-data_point[0])/math.sqrt((data_point[1]-data_point[0])*(data_point[1]-data_point[0])+(data_point_value[1]-data_point_value[0])*(data_point_value[1]-data_point_value[0]))
-    last_tangent_vector[0] = (data_point[len_knot_vector-1]-data_point[len_knot_vector-2])/math.sqrt((data_point[len_knot_vector-1]-data_point[len_knot_vector-2])*(data_point[len_knot_vector-1]-data_point[len_knot_vector-2])+(data_point_value[len_knot_vector-1]-data_point_value[len_knot_vector-2])*(data_point_value[len_knot_vector-1]-data_point_value[len_knot_vector-2]))
-    first_tangent_vector[1] = (data_point_value[1]-data_point_value[0])/math.sqrt((data_point[1]-data_point[0])*(data_point[1]-data_point[0])+(data_point_value[1]-data_point_value[0])*(data_point_value[1]-data_point_value[0]))
-    last_tangent_vector[1] = (data_point_value[len_knot_vector-1]-data_point_value[len_knot_vector-2])/math.sqrt((data_point[len_knot_vector-1]-data_point[len_knot_vector-2])*(data_point[len_knot_vector-1]-data_point[len_knot_vector-2])+(data_point_value[len_knot_vector-1]-data_point_value[len_knot_vector-2])*(data_point_value[len_knot_vector-1]-data_point_value[len_knot_vector-2]))
+    first_tangent_vector[0] = data_point[1]-data_point[0]
+    last_tangent_vector[0] = data_point[len_knot_vector-1]-data_point[len_knot_vector-2]
+    first_tangent_vector[1] = data_point_value[1]-data_point_value[0]
+    last_tangent_vector[1] = data_point_value[len_knot_vector-1]-data_point_value[len_knot_vector-2]
 
     return first_tangent_vector,last_tangent_vector
 
