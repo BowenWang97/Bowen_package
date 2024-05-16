@@ -61,14 +61,14 @@ def B_spline_split(knot_vector_split,vector,spline):
 
     return BS_split
 
-def B_spline_point_derivative_calculate_2d(control_point,knot_vector,vector,order,derivative_order=1):
+def B_spline_point_derivative_calculate(control_point,knot_vector,vector,order,derivative_order=1):
 
     size_control_point = control_point.shape
     len_control_point = size_control_point[1]
 
     knot_vector = knot_vector_repeat(knot_vector,order)
 
-    control_point_derivative = control_point_derivative_calculate_2d(control_point,knot_vector,order,derivative_order)   
+    control_point_derivative = control_point_derivative_calculate(control_point,knot_vector,order,derivative_order)   
     B_spline = B_spline_calculate(knot_vector,vector,order-derivative_order)
 
     B_spline_point_derivative = [0,0]
@@ -94,9 +94,9 @@ def control_point_block_calculate_2d(data_point,first_tangent_vector,last_tangen
     for d in range(2):
         
         control_point[d][0] = data_point[d][0]
-        control_point[d][1] = control_point[d][0]+knot_vector[1+order]*first_tangent_vector[d]/order
+        control_point[d][1] = control_point[d][0]+knot_vector[1+order]*first_tangent_vector[d]/order/max_knot_vector
         control_point[d][len_data_point+1] = data_point[d][len_data_point-1]
-        control_point[d][len_data_point] = control_point[d][len_data_point+1]-(max_knot_vector-knot_vector[len_data_point+order-2])*last_tangent_vector[d]/order
+        control_point[d][len_data_point] = control_point[d][len_data_point+1]-(max_knot_vector-knot_vector[len_data_point+order-2])*last_tangent_vector[d]/order/max_knot_vector
 
     data_point_matrix = np.delete(data_point,len_data_point-1,1)
     data_point_matrix = np.delete(data_point_matrix,0,1)
@@ -227,7 +227,7 @@ def control_point_block_calculate_3d(data_point,data_point_value,knot_vector,ord
 
     return control_point_level_1,control_point_level_2,control_point_level_value
 
-def control_point_derivative_calculate_2d(control_point,knot_vector,order,derivative_order=1):
+def control_point_derivative_calculate(control_point,knot_vector,order,derivative_order=1):
 
     size_control_point = control_point.shape
     len_control_point = size_control_point[1]
@@ -339,7 +339,7 @@ def data_point_derivative_calculate(data_point_level,data_point_value_level,knot
     
     return data_point_derivative,data_point_value_derivative
 
-def data_point_derivative_level_calculate(control_point_level,knot_vector_level_0,vector,derivative_order=1):
+def data_point_derivative_level_calculate_2d(control_point_level,knot_vector_level_0,vector,derivative_order=1):
 
     if (len(knot_vector_level_0) < 4):
 
@@ -349,20 +349,20 @@ def data_point_derivative_level_calculate(control_point_level,knot_vector_level_
 
         order = 3
 
-    first_tangent_vector = B_spline_point_derivative_calculate_2d(np.array(control_point_level),knot_vector_level_0,vector[0],order,derivative_order)
-    last_tangent_vector = B_spline_point_derivative_calculate_2d(np.array(control_point_level),knot_vector_level_0,vector[1],order,derivative_order)
+    first_tangent_vector = B_spline_point_derivative_calculate(np.array(control_point_level),knot_vector_level_0,vector[0],order,derivative_order)
+    last_tangent_vector = B_spline_point_derivative_calculate(np.array(control_point_level),knot_vector_level_0,vector[1],order,derivative_order)
 
-    a = first_tangent_vector[0]
-    b = first_tangent_vector[1]
+    # a = first_tangent_vector[0]
+    # b = first_tangent_vector[1]
 
-    first_tangent_vector[0] = a/np.sqrt(a*a+b*b)
-    first_tangent_vector[1] = b/np.sqrt(a*a+b*b)
+    # first_tangent_vector[0] = a/np.sqrt(a*a+b*b)
+    # first_tangent_vector[1] = b/np.sqrt(a*a+b*b)
 
-    a = last_tangent_vector[0]
-    b = last_tangent_vector[1]
+    # a = last_tangent_vector[0]
+    # b = last_tangent_vector[1]
     
-    last_tangent_vector[0] = a/np.sqrt(a*a+b*b)
-    last_tangent_vector[1] = b/np.sqrt(a*a+b*b)
+    # last_tangent_vector[0] = a/np.sqrt(a*a+b*b)
+    # last_tangent_vector[1] = b/np.sqrt(a*a+b*b)
 
     return first_tangent_vector,last_tangent_vector
 
@@ -597,7 +597,7 @@ def fit_2d(data_point,data_point_value,point_delta):
     control_point = LR_control_point_calculate_2d(data_point,data_point_value,knot_vector)
 
     control_point_value = control_point[1]
-    control_point = control_point[1]
+    control_point = control_point[0]
 
     point_number = int((max(data_point[0][0])-min(data_point[0][0]))/point_delta)
     vector_number = int(max(knot_vector[0][0])/vector_delta)
@@ -615,14 +615,6 @@ def fit_2d(data_point,data_point_value,point_delta):
     for n in range(vector_number):
 
         LRHB_spline_point = LRHB_spline_point_calculate_2d(control_point,control_point_value,knot_vector,point_vector[n])
-
-        print(point_vector[n],LRHB_spline_point,LRHB_spline_point[0]-a0[0])
-
-        if (abs(LRHB_spline_point[0]-a0[0]) > 0.2):
-
-            print("!!!!!!!!!!!!!!!!!!!!!!!!!!")
-
-        a0 = LRHB_spline_point
 
         if (n == vector_number):
 
@@ -664,10 +656,10 @@ def LR_control_point_calculate_2d(data_point,data_point_value,knot_vector):
 
                 order = 3
 
-            data_point_derivative = data_point_derivative_calculate(data_point_block,data_point_value_block,knot_vector_block)
+            tangent_vector = tangent_vector_calculate(data_point[0][0],data_point_value[0][0])
 
-            first_tangent_vector = [data_point_derivative[0][0][1],data_point_derivative[1][0][1]]
-            last_tangent_vector = [data_point_derivative[0][len_data_point-order+1][1],data_point_derivative[1][len_data_point-order+1][1]]
+            first_tangent_vector = tangent_vector[0]
+            last_tangent_vector = tangent_vector[1]
 
             control_point_level = control_point_block_calculate_2d([data_point_block,data_point_value_block],first_tangent_vector,last_tangent_vector,knot_vector_block,order)
 
@@ -698,10 +690,13 @@ def LR_control_point_calculate_2d(data_point,data_point_value,knot_vector):
                 control_point_sequence = data_point_sequence_find(control_point,1,b1,l-1)
                 control_point_value_sequence = data_point_sequence_find(control_point_value,1,b1,l-1)
 
-                data_point_derivative_level = data_point_derivative_level_calculate([control_point_sequence[l-1],control_point_value_sequence[l-1]],knot_vector_sequence[l-1],[knot_vector[l-1][b1][il1],knot_vector[l-1][b1][il1+1]])
+                # data_point_derivative_level = data_point_derivative_level_calculate_2d([control_point_sequence[l-1],control_point_value_sequence[l-1]],knot_vector_sequence[l-1],[knot_vector[l-1][b1][il1],knot_vector[l-1][b1][il1+1]])
+               
+                # first_tangent_vector = data_point_derivative_level[0]
+                # last_tangent_vector = data_point_derivative_level[1]
 
-                first_tangent_vector = data_point_derivative_level[0]
-                last_tangent_vector = data_point_derivative_level[1]
+                first_tangent_vector = LRHB_spline_point_derivative_calculate_2d(control_point_sequence,control_point_value_sequence,knot_vector,knot_vector_sequence,knot_vector[l-1][b1][il1],l)
+                last_tangent_vector = LRHB_spline_point_derivative_calculate_2d(control_point_sequence,control_point_value_sequence,knot_vector,knot_vector_sequence,knot_vector[l-1][b1][il1+1],l)
 
                 if (len(data_point_block) < 4):
 
@@ -711,7 +706,7 @@ def LR_control_point_calculate_2d(data_point,data_point_value,knot_vector):
 
                     order = 3
 
-                control_point_block = LRHB_control_point_block_calculate_2d([control_point_sequence,control_point_value_sequence],[data_point_block,data_point_value_block],first_tangent_vector,last_tangent_vector,knot_vector,knot_vector_sequence,l)
+                control_point_block = LRHBS_control_point_block_calculate_2d([control_point_sequence,control_point_value_sequence],[data_point_block,data_point_value_block],first_tangent_vector,last_tangent_vector,knot_vector,knot_vector_sequence,l)
 
                 control_point_level.append(list(control_point_block[0]))
                 control_point_value_level.append(list(control_point_block[1]))
@@ -766,7 +761,7 @@ def LR_control_point_calculate_3d(data_point_1,data_point_2,data_point_value,kno
 
             for b in range(len_data_point_block):
 
-                control_point_block = LRHB_control_point_block_calculate_3d(control_point_1,control_point_2,control_point_value,data_point_1,data_point_2,data_point_value,knot_vector_1,knot_vector_2,b,l)
+                control_point_block = LRHBS_control_point_block_calculate_3d(control_point_1,control_point_2,control_point_value,data_point_1,data_point_2,data_point_value,knot_vector_1,knot_vector_2,b,l)
 
                 control_point_1_level.append(list(control_point_block[0]))
                 control_point_2_level.append(list(control_point_block[1]))
@@ -778,7 +773,7 @@ def LR_control_point_calculate_3d(data_point_1,data_point_2,data_point_value,kno
 
     return control_point_1,control_point_2,control_point_value
 
-def LRHB_control_point_block_calculate_2d(control_point_sequence,data_point_block,first_tangent_vector,last_tangent_vector,knot_vector,knot_vector_sequence,level):
+def LRHBS_control_point_block_calculate_2d(control_point_sequence,data_point_block,first_tangent_vector,last_tangent_vector,knot_vector,knot_vector_sequence,level):
 
     len_data_point = len(data_point_block[0])
 
@@ -792,7 +787,7 @@ def LRHB_control_point_block_calculate_2d(control_point_sequence,data_point_bloc
 
     control_point_block = np.zeros(shape = (2,len_data_point+2))
 
-    max_knot_vector = max(knot_vector_sequence[level])
+    max_knot_vector = max(knot_vector_sequence[0])
 
     knot_vector_block = knot_vector_repeat(knot_vector_sequence[level],order)
 
@@ -815,17 +810,14 @@ def LRHB_control_point_block_calculate_2d(control_point_sequence,data_point_bloc
 
             il = position_find(knot_vector_sequence[l],knot_vector_block[order])
 
-            # print(LRHB_spline[l],knot_vector_block[order])
-
-            # print(LRHB_spline[l][il],control_point_sequence[d][l][il],LRHB_spline[l][il]*control_point_sequence[d][l][il],LRHB_spline[l][il+order],control_point_sequence[d][l][il+order],LRHB_spline[l][il+order]*control_point_sequence[d][l][il+order])
-
             control_point_block[d][0] = control_point_block[d][0]-LRHB_spline[l][il]*control_point_sequence[d][l][il]-LRHB_spline[l][il+order]*control_point_sequence[d][l][il+order]
-
+        
         control_point_block[d][0] = control_point_block[d][0]/sum(LRHB_spline[level])
-        control_point_block[d][1] = control_point_block[d][0]+knot_vector_block[1+order]*first_tangent_vector[d]/order
+        control_point_block[d][1] = control_point_block[d][0]+(knot_vector_block[1+order]-knot_vector_block[order])*first_tangent_vector[d]/order/(knot_vector_block[len_data_point+order-1]-knot_vector_block[order])
+        
         control_point_block[d][len_data_point+1] = data_point_block[d][len_data_point-1]
 
-        LRHB_spline = LRHB_spline_calculate(knot_vector,knot_vector_block[len_data_point_matrix+order])
+        LRHB_spline = LRHB_spline_calculate(knot_vector,knot_vector_block[len_data_point_matrix+order+1]*(knot_vector_block[len_data_point_matrix+order]+1000)/(knot_vector_block[len_data_point_matrix+order+1]+1000))
 
         for l in range(level):
 
@@ -834,7 +826,7 @@ def LRHB_control_point_block_calculate_2d(control_point_sequence,data_point_bloc
             control_point_block[d][len_data_point+1] = control_point_block[d][len_data_point+1]-LRHB_spline[l][il]*control_point_sequence[d][l][il]-LRHB_spline[l][il+order]*control_point_sequence[d][l][il+order]
 
         control_point_block[d][len_data_point+1] = control_point_block[d][len_data_point+1]/sum(LRHB_spline[level])
-        control_point_block[d][len_data_point] = control_point_block[d][len_data_point+1]-(max_knot_vector-knot_vector_block[len_data_point+order-2])*last_tangent_vector[d]/order
+        control_point_block[d][len_data_point] = control_point_block[d][len_data_point+1]-(knot_vector_block[len_data_point+order-1]-knot_vector_block[len_data_point+order-2])*last_tangent_vector[d]/order/(knot_vector_block[len_data_point+order-1]-knot_vector_block[order])
 
     for m in range(len_data_point_matrix):
 
@@ -906,7 +898,7 @@ def LRHB_control_point_block_calculate_2d(control_point_sequence,data_point_bloc
 
     return list(control_point_block)
 
-def LRHB_control_point_block_calculate_3d(control_point_1,control_point_2,control_point_value,data_point_1,data_point_2,data_point_value,knot_vector_1,knot_vector_2,b,l):
+def LRHBS_control_point_block_calculate_3d(control_point_1,control_point_2,control_point_value,data_point_1,data_point_2,data_point_value,knot_vector_1,knot_vector_2,b,l):
 
     data_point_1_block = list(data_point_1[l][b])
     data_point_2_block = list(data_point_2[l][b])
@@ -950,12 +942,12 @@ def LRHB_control_point_block_calculate_3d(control_point_1,control_point_2,contro
 
             cpvs.append(control_point_value_sequence[l-1][n1][n2])
 
-        data_point_derivative_level = data_point_derivative_level_calculate([control_point_1_sequence[l-1],cpvs],knot_vector_1_sequence[l-1],[knot_vector_1[l-1][b1][i1],knot_vector_1[l-1][b1][i1+1]])
+        data_point_derivative_level = data_point_derivative_level_calculate_2d([control_point_1_sequence[l-1],cpvs],knot_vector_1_sequence[l-1],[knot_vector_1[l-1][b1][i1],knot_vector_1[l-1][b1][i1+1]])
 
         first_tangent_vector = data_point_derivative_level[0]
         last_tangent_vector = data_point_derivative_level[1]
 
-        cp = LRHB_control_point_block_calculate_2d(dp,[control_point_1[l-1][b1][i1],control_point_value[l-1][b1][i1][i2]],first_tangent_vector,[control_point_1[l-1][b1][i1+1],control_point_value[l-1][b1][i1+1][i2]],last_tangent_vector,knot_vector_1,knot_vector_1_block,i1,l)
+        cp = LRHBS_control_point_block_calculate_2d(dp,[control_point_1[l-1][b1][i1],control_point_value[l-1][b1][i1][i2]],first_tangent_vector,[control_point_1[l-1][b1][i1+1],control_point_value[l-1][b1][i1+1][i2]],last_tangent_vector,knot_vector_1,knot_vector_1_block,i1,l)
 
         for n1 in range(len_data_point_1+2):
 
@@ -979,12 +971,12 @@ def LRHB_control_point_block_calculate_3d(control_point_1,control_point_2,contro
 
             cpvs.append(control_point_value_sequence[l-1][n1][n2])
 
-        data_point_derivative_level = data_point_derivative_level_calculate([control_point_2_sequence[l-1],cpvs],knot_vector_2_sequence[l-1],[knot_vector_2[l-1][b1][i2],knot_vector_2[l-1][b1][i2+1]])
+        data_point_derivative_level = data_point_derivative_level_calculate_2d([control_point_2_sequence[l-1],cpvs],knot_vector_2_sequence[l-1],[knot_vector_2[l-1][b1][i2],knot_vector_2[l-1][b1][i2+1]])
 
         first_tangent_vector = data_point_derivative_level[0]
         last_tangent_vector = data_point_derivative_level[1]
 
-        cp = LRHB_control_point_block_calculate_2d(dp,[control_point_2[l-1][b1][i2],control_point_value[l-1][b1][i1][i2]],first_tangent_vector,[control_point_2[l-1][b1][i2+1],control_point_value[l-1][b1][i1][i2+1]],last_tangent_vector,knot_vector_2,knot_vector_2_block,i2,l)
+        cp = LRHBS_control_point_block_calculate_2d(dp,[control_point_2[l-1][b1][i2],control_point_value[l-1][b1][i1][i2]],first_tangent_vector,[control_point_2[l-1][b1][i2+1],control_point_value[l-1][b1][i1][i2+1]],last_tangent_vector,knot_vector_2,knot_vector_2_block,i2,l)
 
         for n2 in range(len_data_point_2+2):
 
@@ -1007,7 +999,34 @@ def LRHB_control_point_block_calculate_3d(control_point_1,control_point_2,contro
 
     return control_point_level_1,control_point_level_2,control_point_level_value
 
-def LRHB_spline_point_derivative_calculate_2d(control_point,knot_vector,vector,level,order,derivative_order=1):
+def LRHB_spline_point_derivative_calculate_2d(control_point_sequence,control_point_value_sequence,knot_vector,knot_vector_sequence,vector,level,derivative_order=1):
+
+    LRHB_spline_point_derivative = [0,0]
+
+    for l in range(level):
+
+        len_control_point_block = len(control_point_sequence[l])
+
+        if (len_control_point_block < 6):
+
+            order = 2
+
+        else:
+
+            order = 3
+
+        knot_vector_block = knot_vector_repeat(knot_vector_sequence[l],order)
+
+        control_point_derivative = control_point_derivative_calculate(np.array([control_point_sequence[l],control_point_value_sequence[l]]),knot_vector_block,order,derivative_order)   
+        LRHB_spline = LRHB_spline_calculate(knot_vector,vector)
+
+        for d in range(2):
+
+            for j in range(len_control_point_block):
+
+                LRHB_spline_point_derivative[d] = LRHB_spline_point_derivative[d]+control_point_derivative[d][j][derivative_order]*LRHB_spline[l][j]
+
+    return LRHB_spline_point_derivative
 
 def LRHB_spline_calculate(knot_vector,vector):
 
@@ -1117,8 +1136,6 @@ def LRHB_spline_point_calculate_2d(control_point,control_point_value,knot_vector
 
     LRHB_spline = LRHB_spline_calculate(knot_vector,vector)
 
-    print("LRHBS:",LRHB_spline)
-
     point = 0
     point_value = 0
 
@@ -1144,12 +1161,8 @@ def LRHB_spline_point_calculate_2d(control_point,control_point_value,knot_vector
 
                 else:
 
-                    print(control_point[0][0][i+m]*LRHB_spline[0][i+m])
-
                     point = point+control_point[0][0][i+m]*LRHB_spline[0][i+m]
                     point_value = point_value+control_point_value[0][0][i+m]*LRHB_spline[0][i+m]
-
-                    print("p0",point)
 
         else:
 
@@ -1173,8 +1186,6 @@ def LRHB_spline_point_calculate_2d(control_point,control_point_value,knot_vector
                 point = point-control_point[l-1][b1][i1+1]*LRHB_spline[l-1][i1+1]-control_point[l-1][b1][i1+2]*LRHB_spline[l-1][i1+2]
                 point_value = point_value-control_point_value[l-1][b1][i1+1]*LRHB_spline[l-1][i1+1]-control_point_value[l-1][b1][i1+2]*LRHB_spline[l-1][i1+2]
 
-            print("p1",point,control_point[l-1][b1][i1+1]*LRHB_spline[l-1][i1+1],control_point[l-1][b1][i1+2]*LRHB_spline[l-1][i1+2])
-
             i = position_find(knot_vector_sequence[l],vector)
             b = knot_vector_block_find(knot_vector[l],list(np.squeeze(knot_vector_sequence[l])),l)
 
@@ -1188,8 +1199,6 @@ def LRHB_spline_point_calculate_2d(control_point,control_point_value,knot_vector
 
                     point = point+control_point[l][b][i+m]*LRHB_spline[l][i+m]
                     point_value = point_value+control_point_value[l][b][i+m]*LRHB_spline[l][i+m]
-
-                    print("p:",point,control_point[l][b][i+m],LRHB_spline[l][i+m],control_point[l][b][i+m]*LRHB_spline[l][i+m])
 
     return point,point_value
 
@@ -1917,6 +1926,20 @@ def position_find(knot_vector,vector):
                 i = len_knot-1
 
     return i
+
+def tangent_vector_calculate(data_point,data_point_value):
+
+    len_knot_vector = len(data_point)
+
+    first_tangent_vector = np.zeros(2)
+    last_tangent_vector = np.zeros(2)
+
+    first_tangent_vector[0] = data_point[1]-data_point[0]
+    last_tangent_vector[0] = data_point[len_knot_vector-1]-data_point[len_knot_vector-2]
+    first_tangent_vector[1] = data_point_value[1]-data_point_value[0]
+    last_tangent_vector[1] = data_point_value[len_knot_vector-1]-data_point_value[len_knot_vector-2]
+
+    return first_tangent_vector,last_tangent_vector
 
 def vector_position_find(knot_vector,vector):
 
