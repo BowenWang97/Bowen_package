@@ -1733,6 +1733,9 @@ def knot_vector_calculate_3d(data_point,data_point_value):
 
             knot_vector_2[n2+1] = knot_vector_2[n2+1]+math.sqrt((data_point[1][n2+1]-data_point[1][n2])*(data_point[1][n2+1]-data_point[1][n2])+(data_point_value[n1][n2+1]-data_point_value[n1][n2])*(data_point_value[n1][n2+1]-data_point_value[n1][n2]))/len_knot_vector_1
 
+    knot_vector_1 = knot_vector_1.tolist()
+    knot_vector_2 = knot_vector_2.tolist()
+    
     return knot_vector_1,knot_vector_2
 
 def knot_vector_calculate_4d(data_point,data_point_value):
