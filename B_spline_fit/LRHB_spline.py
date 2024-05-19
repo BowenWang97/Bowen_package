@@ -175,10 +175,10 @@ def control_point_block_calculate_3d(data_point,data_point_value,knot_vector,ord
             dp[0][n1] = data_point[0][n1]
             dp[1][n1] = data_point_value[n1][n2]
         
-        data_point_derivative = data_point_derivative_calculate(dp[0],dp[1],knot_vector[0])
+        tangent_vector = tangent_vector_calculate(dp[0],dp[1])
 
-        first_tangent_vector = [data_point_derivative[0][0][1],data_point_derivative[1][0][1]]
-        last_tangent_vector = [data_point_derivative[0][len_data_point_1-order[0]+1][1],data_point_derivative[1][len_data_point_1-order[0]+1][1]]
+        first_tangent_vector = tangent_vector[0]
+        last_tangent_vector = tangent_vector[1]
 
         cp = control_point_block_calculate_2d(dp,first_tangent_vector,last_tangent_vector,knot_vector[0],order[0])
 
@@ -199,10 +199,10 @@ def control_point_block_calculate_3d(data_point,data_point_value,knot_vector,ord
             dp[0][n2] = control_point_1[1][n1][n2]
             dp[1][n2] = control_point_1[2][n1][n2]
 
-        data_point_derivative = data_point_derivative_calculate(dp[0],dp[1],knot_vector[1])
+        tangent_vector = tangent_vector_calculate(dp[0],dp[1])
 
-        first_tangent_vector = [data_point_derivative[0][0][1],data_point_derivative[1][0][1]]
-        last_tangent_vector = [data_point_derivative[0][len_data_point_2-order[1]+1][1],data_point_derivative[1][len_data_point_2-order[1]+1][1]]
+        first_tangent_vector = tangent_vector[0]
+        last_tangent_vector = tangent_vector[1]
 
         cp = control_point_block_calculate_2d(dp,first_tangent_vector,last_tangent_vector,knot_vector[1],order[1])
 
@@ -629,17 +629,147 @@ def fit_2d(data_point,data_point_value,point_delta):
 
     return fit_point
 
-def fit_3d(data_point_1,data_point_2,data_point_value,point_delta):
+def fit_2d_3d(control_point,control_point_value,data_point,data_point_value,knot_vector,point_delta):
 
     vector_delta = point_delta/10
 
+    point_number = int((max(data_point[0][0])-min(data_point[0][0]))/point_delta)
+    vector_number = int(max(knot_vector[0][0])/vector_delta)
+    point_vector = np.zeros(vector_number)
+
+    for u in range(vector_number):
+
+        point_vector[u] = u*vector_delta
+
+    fit_point = np.zeros(shape = (2,point_number+1))
+
+    m = 0
+
+    for n in range(vector_number):
+
+        LRHB_spline_point = LRHB_spline_point_calculate_2d(control_point,control_point_value,knot_vector,point_vector[n])
+
+        if (m == point_number):
+
+            fit_point[0][m] = data_point[0][0][len(data_point[0][0])-1]
+            fit_point[1][m] = data_point_value[0][0][len(data_point_value[0][0])-1]
+
+        elif (LRHB_spline_point[0] >= m*point_delta+min(data_point[0][0])):
+
+            fit_point[0][m] = LRHB_spline_point[0]
+            fit_point[1][m] = LRHB_spline_point[1]
+
+            m = m+1
+
+    return fit_point
+
+def fit_3d(data_point_1,data_point_2,data_point_value,point_delta):
+
+    vector_delta_1 = point_delta[0]/10
+    vector_delta_2 = point_delta[1]/10
+
     knot_vector = knot_vector_calculate_3d(data_point_1,data_point_2,data_point_value)
 
-    control_point = LR_control_point_calculate_3d(data_point_1,data_point_2,data_point_value,knot_vector)
+    knot_vector_1 = knot_vector[0]
+    knot_vector_2 = knot_vector[1]
+
+    control_point = LR_control_point_calculate_3d(data_point_1,data_point_2,data_point_value,knot_vector_1,knot_vector_2)
 
     control_point_1 = control_point[0]
     control_point_2 = control_point[1]
     control_point_value = control_point[2]
+
+    point_number_1 = int((max(data_point_1[0][0])-min(data_point_1[0][0]))/point_delta[0])
+    point_number_2 = int((max(data_point_2[0][0])-min(data_point_2[0][0]))/point_delta[1])
+    vector_number_1 = int(max(knot_vector_1[0][0])/vector_delta_1)
+    vector_number_2 = int(max(knot_vector_2[0][0])/vector_delta_2)
+    point_vector_1 = np.zeros(vector_number_1)
+    point_vector_2 = np.zeros(vector_number_2)
+
+    for n1 in range(vector_number_1):
+
+        point_vector_1[n1] = n1*vector_delta_1
+
+    for n2 in range(vector_number_2):
+
+        point_vector_2[n2] = n2*vector_delta_2
+
+    fit_point_1 = list(np.zeros(point_number_1+1))
+    fit_point_2 = list(np.zeros(point_number_2+1))
+    fit_point_value = np.zeros(shape = (point_number_1+1,point_number_2+1))
+    fit_point_value = fit_point_value.tolist()
+
+    m1 = 0
+    m2 = 0
+
+    for n1 in range(vector_number_1):
+
+        vt = [point_vector_1[n1],point_vector_2[0]]
+
+        LRHB_spline_point = LRHB_spline_point_calculate_3d(control_point_1,control_point_2,control_point_value,knot_vector_1,knot_vector_2,vt)
+
+        if (LRHB_spline_point[0] >= m1*point_delta[0]+min(data_point_1[0][0])):
+
+            fit_point_1[m1] = LRHB_spline_point[0]
+
+            for n2 in range(vector_number_2):
+
+                vt = [point_vector_1[n1],point_vector_2[n2]]
+
+                LRHB_spline_point = LRHB_spline_point_calculate_3d(control_point_1,control_point_2,control_point_value,knot_vector_1,knot_vector_2,vt)
+
+                if (LRHB_spline_point[1] >= m2*point_delta[1]+min(data_point_2[0][0])):
+
+                    fit_point_2[m2] = LRHB_spline_point[1]
+                    fit_point_value[m1][m2] = LRHB_spline_point[2]
+
+                    m2 = m2+1
+
+            m1 = m1+1
+
+            m2 = 0
+
+    fit_point_1[point_number_1] = max(data_point_1[0][0])
+    fit_point_2[point_number_2] = max(data_point_2[0][0])
+
+    len_data_point_1 = len(data_point_1[0][0])
+    len_data_point_2 = len(data_point_2[0][0])
+
+    cpv = list(np.zeros(len_data_point_1+2))
+    dpv = list(np.zeros(len_data_point_1))
+
+    for m1 in range(len_data_point_1+2):
+
+        cpv[m1] = control_point_value[0][0][m1][len_data_point_2+1]
+
+    for n1 in range(len_data_point_1):
+
+        dpv[n1] = data_point_value[0][0][n1][len_data_point_2-1]
+
+    fit_point = fit_2d_3d([[control_point_1[0][0]]],[[cpv]],[[data_point_1[0][0]]],[[dpv]],[[knot_vector_1[0][0]]],point_delta[0])
+
+    for m1 in range(point_number_1+1):
+
+        fit_point_value[m1][point_number_2] = fit_point[1][m1]
+
+    cpv = list(np.zeros(len_data_point_2+2))
+    dpv = list(np.zeros(len_data_point_2))
+
+    for m2 in range(len_data_point_2+2):
+
+        cpv[m2] = control_point_value[0][0][len_data_point_1+1][m2]
+
+    for n2 in range(len_data_point_2):
+
+        dpv[n2] = data_point_value[0][0][len_data_point_1-1][n2]
+
+    fit_point = fit_2d_3d([[control_point_2[0][0]]],[[cpv]],[[data_point_2[0][0]]],[[dpv]],[[knot_vector_2[0][0]]],point_delta[1])
+
+    for m2 in range(point_number_2+1):
+
+        fit_point_value[point_number_1][m2] = fit_point[1][m2]
+
+    return fit_point_1,fit_point_2,fit_point_value
 
 def LR_control_point_calculate_2d(data_point,data_point_value,knot_vector):
 
@@ -1201,25 +1331,33 @@ def LRHB_spline_point_calculate_3d(control_point_1,control_point_2,control_point
     vector_position_1 = vector_position_find(knot_vector_1,vector[0])
     vector_position_2 = vector_position_find(knot_vector_2,vector[1])
 
-    if (vector_position_1[2] > vector_position_1[5]):
+    if (vector_position_1[2] == vector_position_2[2]):
 
         number_1 = vector_position_1[0]
+        number_2 = vector_position_2[0]
         block = vector_position_1[1]
         level = vector_position_1[2]
 
-    else:
+    elif (vector_position_1[2] == vector_position_2[5]):
 
-        number_1 = vector_position_1[3]
-        block = vector_position_1[4]
-        level = vector_position_1[5]
-
-    if (vector_position_2[2] > vector_position_2[5]):
-
-        number_2 = vector_position_2[0]
-
-    else:
-
+        number_1 = vector_position_1[0]
         number_2 = vector_position_2[3]
+        block = vector_position_1[1]
+        level = vector_position_1[2]
+
+    elif (vector_position_1[5] == vector_position_2[2]):
+
+        number_1 = vector_position_1[5]
+        number_2 = vector_position_2[2]
+        block = vector_position_2[1]
+        level = vector_position_2[2]
+
+    else:
+
+        number_1 = vector_position_1[5]
+        number_2 = vector_position_2[5]
+        block = vector_position_1[3]
+        level = vector_position_1[4]
 
     knot_vector_1_sequence = knot_vector_sequence_find(knot_vector_1,number_1,block,level)
     knot_vector_2_sequence = knot_vector_sequence_find(knot_vector_2,number_2,block,level)
@@ -1228,7 +1366,7 @@ def LRHB_spline_point_calculate_3d(control_point_1,control_point_2,control_point
     LRHB_spline_2 = LRHB_spline_calculate(knot_vector_2,vector[1])
 
     point = list(np.zeros(3))
-    point_1 = np.zeros(shape = (level+1,2))
+    # point_1 = []
     order = []
 
     for l in range(level+1):
@@ -1254,7 +1392,11 @@ def LRHB_spline_point_calculate_3d(control_point_1,control_point_2,control_point
 
                 order.append(3)
 
-            for m1 in range(order[0]+1):                
+            # point_1_level = []
+
+            for m1 in range(order[0]+1):
+
+                point_1_block = list(np.zeros(2))
 
                 for m2 in range(order[1]+1):
 
@@ -1264,8 +1406,10 @@ def LRHB_spline_point_calculate_3d(control_point_1,control_point_2,control_point
 
                     else:
 
-                        point_1[l][0] = point_1[l][0]+control_point_2[0][0][i2+m2]*LRHB_spline_2[0][i2+m2]
-                        point_1[l][1] = point_1[l][1]+control_point_value[0][0][i1+m1][i2+m2]*LRHB_spline_2[0][i2+m2]
+                        point_1_block[0] = point_1_block[0]+control_point_2[0][0][i2+m2]*LRHB_spline_2[0][i2+m2]
+                        point_1_block[1] = point_1_block[1]+control_point_value[0][0][i1+m1][i2+m2]*LRHB_spline_2[0][i2+m2]
+
+                # point_1_level.append(point_1_block)
 
                 if (i1+m1 >= len(control_point_1[0][0])):
 
@@ -1274,8 +1418,8 @@ def LRHB_spline_point_calculate_3d(control_point_1,control_point_2,control_point
                 else:
 
                     point[0] = point[0]+control_point_1[0][0][i1+m1]*LRHB_spline_1[0][i1+m1]
-                    point[1] = point[1]+point_1[l][0]*LRHB_spline_1[0][i1+m1]
-                    point[2] = point[2]+point_1[l][1]*LRHB_spline_1[0][i1+m1]
+                    point[1] = point[1]+point_1_block[0]*LRHB_spline_1[0][i1+m1]
+                    point[2] = point[2]+point_1_block[1]*LRHB_spline_1[0][i1+m1]
 
         else:
 
@@ -1289,10 +1433,12 @@ def LRHB_spline_point_calculate_3d(control_point_1,control_point_2,control_point
                 b0 = knot_vector_block_find(knot_vector_1[l-1],list(np.squeeze(knot_vector_1_sequence[l-1])),l-1)
 
                 point[0] = point[0]-control_point_1[l-1][b0][i1+1]*LRHB_spline_1[l-1][i1+1]
-                point[1] = point[1]-point_1[l-1][0]*LRHB_spline_1[i1+1]
-                point[1] = point[1]-control_point_2[l-1][b0][i2+1]*LRHB_spline_2[l-1][i2+1]
-                point[2] = point[2]-point_1[l-1][1]*LRHB_spline_1[i1+1]
-                point[2] = point[2]-control_point_value[l-1][b0][i1+1][i2+1]*LRHB_spline_2[l-1][i2+1]                
+                point[1] = point[1]-control_point_2[l-1][b0][i2+1]*LRHB_spline_2[l-1][i2+1]*LRHB_spline_1[l-1][i1+1]
+                point[2] = point[2]-control_point_value[l-1][b0][i1+1][i2+1]*LRHB_spline_2[l-1][i2+1]*LRHB_spline_1[l-1][i1+1]
+                # point[1] = point[1]-point_1[l-1][1][0]*LRHB_spline_1[l-1][i1+1]
+                # point[1] = point[1]+control_point_2[l-1][b0][i2]*LRHB_spline_2[l-1][i2]+control_point_2[l-1][b0][i2+2]*LRHB_spline_2[l-1][i2+2]
+                # point[2] = point[2]-point_1[l-1][1][1]*LRHB_spline_1[l-1][i1+1]
+                # point[2] = point[2]+control_point_value[l-1][b0][i1][i2]*LRHB_spline_2[l-1][i2]+control_point_value[l-1][b0][i1][i2+2]*LRHB_spline_2[l-1][i2+2]+control_point_value[l-1][b0][i1+2][i2]*LRHB_spline_2[l-1][i2]+control_point_value[l-1][b0][i1+2][i2+2]*LRHB_spline_2[l-1][i2+2]    
 
             elif (len(knot_vector_1_sequence[l]) < 4 and len(knot_vector_2_sequence[l]) >= 4):
 
@@ -1304,11 +1450,9 @@ def LRHB_spline_point_calculate_3d(control_point_1,control_point_2,control_point
                 b0 = knot_vector_block_find(knot_vector_1[l-1],list(np.squeeze(knot_vector_1_sequence[l-1])),l-1)
 
                 point[0] = point[0]-control_point_1[l-1][b0][i1+1]*LRHB_spline_1[l-1][i1+1]
-                point[1] = point[1]-point_1[l-1][0]*LRHB_spline_1[i1+1]
-                point[1] = point[1]-control_point_2[l-1][b0][i2+1]*LRHB_spline_2[l-1][i2+1]-control_point_2[l-1][b0][i1+2]*LRHB_spline_2[l-1][i1+2]
-                point[2] = point[2]-point_1[l-1][1]*LRHB_spline_1[i1+1]
-                point[2] = point[2]-control_point_value[l-1][b0][i1+1][i2+1]*LRHB_spline_2[l-1][i2+1]-control_point_value[l-1][b0][i1+1][i1+2]*LRHB_spline_2[l-1][i1+2]
-            
+                point[1] = point[1]-(control_point_2[l-1][b0][i2+1]*LRHB_spline_2[l-1][i2+1]+control_point_2[l-1][b0][i2+2]*LRHB_spline_2[l-1][i2+2])*LRHB_spline_1[l-1][i1+1]
+                point[2] = point[2]-(control_point_value[l-1][b0][i1+1][i2+1]*LRHB_spline_2[l-1][i2+1]+control_point_value[l-1][b0][i1+1][i2+2]*LRHB_spline_2[l-1][i2+2])*LRHB_spline_1[l-1][i1+1]
+                
             elif (len(knot_vector_1_sequence[l]) >= 4 and len(knot_vector_2_sequence[l]) < 4):
 
                 order[0] = 3
@@ -1319,31 +1463,33 @@ def LRHB_spline_point_calculate_3d(control_point_1,control_point_2,control_point
                 b0 = knot_vector_block_find(knot_vector_1[l-1],list(np.squeeze(knot_vector_1_sequence[l-1])),l-1)
 
                 point[0] = point[0]-control_point_1[l-1][b0][i1+1]*LRHB_spline_1[l-1][i1+1]-control_point_1[l-1][b0][i1+2]*LRHB_spline_1[l-1][i1+2]
-                point[1] = point[1]-point_1[l-1][0]*LRHB_spline_1[i1+1]-point_1[l-1][0]*LRHB_spline_1[i1+2]
-                point[1] = point[1]-control_point_2[l-1][b0][i2+1]*LRHB_spline_2[l-1][i2+1]
-                point[2] = point[2]-point_1[l-1][1]*LRHB_spline_1[i1+1]-point_1[l-1][1]*LRHB_spline_1[i1+2]
-                point[2] = point[2]-control_point_value[l-1][b0][i1+1][i2+1]*LRHB_spline_2[l-1][i2+1]
-
+                point[1] = point[1]-control_point_2[l-1][b0][i2+1]*LRHB_spline_2[l-1][i2+1]*LRHB_spline_1[l-1][i1+1]
+                point[2] = point[2]-(control_point_value[l-1][b0][i1+1][i2+1]*LRHB_spline_1[l-1][i1+1]+control_point_value[l-1][b0][i1+2][i2+1]*LRHB_spline_1[l-1][i1+2])*LRHB_spline_2[l-1][i2+1]
+                
             else:
 
                 order[0] = 3
-                order[1] = 2
+                order[1] = 3
 
                 i1 = position_find(knot_vector_1_sequence[l-1],knot_vector_1_sequence[l][0])
                 i2 = position_find(knot_vector_2_sequence[l-1],knot_vector_2_sequence[l][0])
                 b0 = knot_vector_block_find(knot_vector_1[l-1],list(np.squeeze(knot_vector_1_sequence[l-1])),l-1)
 
                 point[0] = point[0]-control_point_1[l-1][b0][i1+1]*LRHB_spline_1[l-1][i1+1]-control_point_1[l-1][b0][i1+2]*LRHB_spline_1[l-1][i1+2]
-                point[1] = point[1]-point_1[l-1][0]*LRHB_spline_1[i1+1]-point_1[l-1][0]*LRHB_spline_1[i1+2]
-                point[1] = point[1]-control_point_2[l-1][b0][i2+1]*LRHB_spline_2[l-1][i2+1]-control_point_2[l-1][b0][i1+2]*LRHB_spline_2[l-1][i1+2]
-                point[2] = point[2]-point_1[l-1][1]*LRHB_spline_1[i1+1]-point_1[l-1][1]*LRHB_spline_1[i1+2]
-                point[2] = point[2]-control_point_value[l-1][b0][i1+1][i2+1]*LRHB_spline_2[l-1][i2+1]-control_point_value[l-1][b0][i1+1][i1+2]*LRHB_spline_2[l-1][i1+2]
+                point[1] = point[1]-(control_point_2[l-1][b0][i2+1]*LRHB_spline_2[l-1][i2+1]+control_point_2[l-1][b0][i2+2]*LRHB_spline_2[l-1][i2+2])*(LRHB_spline_1[l-1][i1+1]+LRHB_spline_1[l-1][i1+2])
+                point[2] = point[2]-(control_point_value[l-1][b0][i1+1][i2+1]*LRHB_spline_2[l-1][i2+1]+control_point_value[l-1][b0][i1+1][i2+2]*LRHB_spline_2[l-1][i2+2])*LRHB_spline_1[l-1][i1+1]-(control_point_value[l-1][b0][i1+2][i2+1]*LRHB_spline_2[l-1][i2+1]+control_point_value[l-1][b0][i1+2][i2+2]*LRHB_spline_2[l-1][i2+2])*LRHB_spline_1[l-1][i1+2]
+                # point[2] = point[2]-point_1[l-1][1][1]*LRHB_spline_1[l-1][i1+1]-point_1[l-1][2][1]*LRHB_spline_1[l-1][i1+2]
+                # point[2] = point[2]+(control_point_value[l-1][b0][i1][i2]*LRHB_spline_2[l-1][i2]+control_point_value[l-1][b0][i1][i2+3]*LRHB_spline_2[l-1][i2+3])*LRHB_spline_1[l-1][i1]+(control_point_value[l-1][b0][i1+3][i2]*LRHB_spline_2[l-1][i2]+control_point_value[l-1][b0][i1+3][i2+3]*LRHB_spline_2[l-1][i2+3])*LRHB_spline_1[l-1][i1+3]
 
             i1 = position_find(knot_vector_1_sequence[l],vector[0])
             i2 = position_find(knot_vector_2_sequence[l],vector[1])
             b = knot_vector_block_find(knot_vector_1[l],list(np.squeeze(knot_vector_1_sequence[l])),l)
 
-            for m1 in range(order[0]+1):                
+            # point_1_level = []
+
+            for m1 in range(order[0]+1):
+
+                point_1_block = list(np.zeros(2))   
 
                 for m2 in range(order[1]+1):
 
@@ -1353,18 +1499,22 @@ def LRHB_spline_point_calculate_3d(control_point_1,control_point_2,control_point
 
                     else:
 
-                        point_1[l][0] = point_1[l][0]+control_point_2[l][b][i2+m2]*LRHB_spline_2[l][i2+m2]
-                        point_1[l][1] = point_1[l][1]+control_point_value[l][b][i1+m1][i2+m2]*LRHB_spline_2[l][i2+m2]
+                        point_1_block[0] = point_1_block[0]+control_point_2[l][b][i2+m2]*LRHB_spline_2[l][i2+m2]
+                        point_1_block[1] = point_1_block[1]+control_point_value[l][b][i1+m1][i2+m2]*LRHB_spline_2[l][i2+m2]
 
-                if (i1+m1 >= len(control_point_1[0][0])):
+                # point_1_level.append(point_1_block)
+
+                if (i1+m1 >= len(control_point_1[l][b])):
 
                     continue
 
                 else:
 
                     point[0] = point[0]+control_point_1[l][b][i1+m1]*LRHB_spline_1[l][i1+m1]
-                    point[1] = point[1]+point_1[l][0]*LRHB_spline_1[l][i1+m1]
-                    point[2] = point[2]+point_1[l][1]*LRHB_spline_1[l][i1+m1]
+                    point[1] = point[1]+point_1_block[0]*LRHB_spline_1[l][i1+m1]
+                    point[2] = point[2]+point_1_block[1]*LRHB_spline_1[l][i1+m1]
+
+        # point_1.append(point_1_level)
 
     return point
 
@@ -1606,8 +1756,8 @@ def knot_vector_calculate_3d(data_point_1,data_point_2,data_point_value):
                 for n1 in range(len_data_point_1-1):
 
                     knot_vector_1_block[n1+1] = knot_vector_1_block[n1]+data_point_distance_calculate([data_point_1[0][0][n1+1],data_point_1[0][0][n1]],[data_point_value[0][0][n1+1][n2],data_point_value[0][0][n1][n2]])
-
-                knot_vector_1_block_total = knot_vector_sum(knot_vector_1_block_total,knot_vector_1_block,len_data_point_2)
+                
+                knot_vector_1_block_total = knot_vector_sum(knot_vector_1_block_total,knot_vector_1_block,len_data_point_2)                
             
             knot_vector_1 = [[knot_vector_1_block_total]]
 
