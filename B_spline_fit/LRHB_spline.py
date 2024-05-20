@@ -147,6 +147,7 @@ def control_point_block_calculate_2d(data_point,first_tangent_vector,last_tangen
 
                         coefficiency_matrix[m][m+i-1] = B_spline[m+i+1]
 
+    
     coefficiency_matrix_inv = np.linalg.inv(coefficiency_matrix)
 
     for d in range(2):
@@ -282,7 +283,7 @@ def control_point_summary_2d(control_point,control_point_value,knot_vector,knot_
 
 def data_point_block_add(data_point,block,level):
 
-    data_point_block = list(data_point[level][block])
+    data_point_block = data_point[level][block].tolist()
 
     data_point_position = data_point_position_find(data_point,0,block,level)
 
@@ -2211,6 +2212,8 @@ def position_find(knot_vector,vector):
 
         for n in range(len_knot-1):
 
+            # if (knot_vector[n] >= 0):
+
             if ((vector-knot_vector[n]) >= 0 and (vector-knot_vector[n+1]) < 0):
 
                 i = n
@@ -2219,6 +2222,17 @@ def position_find(knot_vector,vector):
             else:
 
                 i = len_knot-1
+
+            # elif (knot_vector[n] < 0 and knot_vector[n+1] >= 0):
+
+            #     if (vector >= knot_vector[n] and vector < knot_vector[n+1]):
+
+            #         i = n
+            #         break
+
+            #     else:
+
+            #         i = len_knot-1
 
     return i
 
@@ -2263,7 +2277,7 @@ def vector_position_find(knot_vector,vector):
                     left_block = b
                     left_level = l
 
-                elif (dif < 0 and dif > max_dif):
+                elif (dif <= 0 and dif >= max_dif):
 
                     max_dif = dif
 
