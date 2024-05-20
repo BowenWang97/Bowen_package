@@ -564,7 +564,6 @@ def exterior_algebra_max_information_3d(data_point,data_point_value,point_delta,
     len_fit_point_2 = len(fit_point[1])
 
     vector = np.zeros(shape = (3,4))
-    vector_0 = np.zeros(shape = (3,4))
     max_point = np.zeros(2)
     max_weight = 0
 
