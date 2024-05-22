@@ -283,7 +283,7 @@ def control_point_summary_2d(control_point,control_point_value,knot_vector,knot_
 
 def data_point_block_add(data_point,block,level):
 
-    data_point_block = data_point[level][block].tolist()
+    data_point_block = list(data_point[level][block])
 
     data_point_position = data_point_position_find(data_point,0,block,level)
 
@@ -588,6 +588,167 @@ def data_point_sequence_find(data_point,number,block,level):
     #         data_point_number_sequence.insert(0,data_point_number_sequence_level)
         
     return data_point_sequence
+
+def data_point_value_position_find(data_point_1,data_point_2,new_point):
+
+    position_1 = list(vector_position_find_2d(data_point_1,new_point[0]))
+    position_2 = list(vector_position_find_2d(data_point_2,new_point[1]))
+
+    max_level = max(position_1[2],position_1[5],position_2[2],position_2[5])
+
+    if (position_1[2] == position_2[2] and position_1[2] == max_level and position_2[2] == max_level and position_1[1] == position_2[1]):
+
+        loop_status = False
+
+    elif (position_1[5] == position_2[5] and position_1[5] == max_level and position_2[5] == max_level and position_1[4] == position_2[4]):
+
+        loop_status = False
+
+    elif (position_1[2] == position_2[5] and position_1[2] == max_level and position_2[5] == max_level and position_1[1] == position_2[4]):
+
+        loop_status = False
+
+    elif (position_1[5] == position_2[2] and position_1[5] == max_level and position_2[2] == max_level and position_1[4] == position_2[1]):
+
+        loop_status = False
+
+    else:
+
+        loop_status = True
+
+    while (loop_status):
+
+        if (position_1[2] == max_level):
+
+            data_point_position_1 = data_point_position_find(data_point_1,position_1[0],position_1[1],position_1[2])
+
+            position_1[0] = data_point_position_1[0]
+            position_1[1] = data_point_position_1[1]
+            position_1[2] = data_point_position_1[2]
+
+        if (position_1[5] == max_level):
+
+            data_point_position_1 = data_point_position_find(data_point_1,position_1[3],position_1[4],position_1[5])
+
+            position_1[3] = data_point_position_1[3]
+            position_1[4] = data_point_position_1[4]
+            position_1[5] = data_point_position_1[5]
+
+        if (position_2[2] == max_level):
+
+            data_point_position_2 = data_point_position_find(data_point_2,position_2[0],position_2[1],position_2[2])
+
+            position_2[0] = data_point_position_2[0]
+            position_2[1] = data_point_position_2[1]
+            position_2[2] = data_point_position_2[2]
+
+        if (position_2[5] == max_level):
+
+            data_point_position_2 = data_point_position_find(data_point_2,position_2[3],position_2[4],position_2[5])
+
+            position_2[3] = data_point_position_2[3]
+            position_2[4] = data_point_position_2[4]
+            position_2[5] = data_point_position_2[5]
+
+        max_level = max(position_1[2],position_1[5],position_2[2],position_2[5])
+
+        if (position_1[2] == position_2[2] and position_1[2] == max_level and position_2[2] == max_level and position_1[1] == position_2[1]):
+
+            loop_status = False
+
+        elif (position_1[5] == position_2[5] and position_1[5] == max_level and position_2[5] == max_level and position_1[4] == position_2[4]):
+
+            loop_status = False
+
+        elif (position_1[2] == position_2[5] and position_1[2] == max_level and position_2[5] == max_level and position_1[1] == position_2[4]):
+
+            loop_status = False
+
+        elif (position_1[5] == position_2[2] and position_1[5] == max_level and position_2[2] == max_level and position_1[4] == position_2[1]):
+
+            loop_status = False
+
+        else:
+
+            loop_status = True
+
+    if (position_1[2] == position_2[2] and position_1[2] == max_level and position_2[2] == max_level and position_1[1] == position_2[1]):
+
+        level = position_1[2]
+        block = position_1[1]
+
+        if (level == 0):
+
+            left_number_1 = position_1[0]
+            right_number_1 = position_1[0]+1
+            left_number_2 = position_2[0]
+            right_number_2 = position_2[0]+1
+
+        else:
+
+            left_number_1 = position_1[0]+1
+            right_number_1 = position_1[0]+2
+            left_number_2 = position_2[0]+1
+            right_number_2 = position_2[0]+2
+
+    elif (position_1[5] == position_2[5] and position_1[5] == max_level and position_2[5] == max_level and position_1[4] == position_2[4]):
+
+        level = position_1[5]
+        block = position_1[4]
+
+        if (level == 0):
+
+            left_number_1 = position_1[3]-1
+            right_number_1 = position_1[3]
+            left_number_2 = position_2[3]-1
+            right_number_2 = position_2[3]
+
+        else:
+
+            left_number_1 = position_1[3]
+            right_number_1 = position_1[3]+1
+            left_number_2 = position_2[3]
+            right_number_2 = position_2[3]+1
+
+    elif (position_1[2] == position_2[5] and position_1[2] == max_level and position_2[5] == max_level and position_1[1] == position_2[4]):
+
+        level = position_1[2]
+        block = position_1[1]
+
+        if (level == 0):
+
+            left_number_1 = position_1[0]
+            right_number_1 = position_1[0]+1
+            left_number_2 = position_2[3]-1
+            right_number_2 = position_2[3]
+
+        else:
+
+            left_number_1 = position_1[0]+1
+            right_number_1 = position_1[0]+2
+            left_number_2 = position_2[3]
+            right_number_2 = position_2[3]+1
+
+    elif (position_1[5] == position_2[2] and position_1[5] == max_level and position_2[2] == max_level and position_1[4] == position_2[1]):
+
+        level = position_1[5]
+        block = position_1[4]
+
+        if (level == 0):
+
+            left_number_1 = position_1[3]-1
+            right_number_1 = position_1[3]
+            left_number_2 = position_2[0]-1
+            right_number_2 = position_2[0]
+
+        else:
+
+            left_number_1 = position_1[3]
+            right_number_1 = position_1[3]+1
+            left_number_2 = position_2[0]
+            right_number_2 = position_2[0]+1
+
+    return level,block,left_number_1,right_number_1,left_number_2,right_number_2
 
 def fit_2d(data_point,data_point_value,point_delta):
 
@@ -1155,7 +1316,7 @@ def LRHB_spline_point_derivative_calculate_2d(control_point_sequence,control_poi
 
 def LRHB_spline_calculate(knot_vector,vector):
 
-    vector_position = vector_position_find(knot_vector,vector)
+    vector_position = vector_position_find_2d(knot_vector,vector)
 
     if (vector_position[2] > vector_position[5]):
 
@@ -1243,7 +1404,7 @@ def LRHB_spline_level_calculate_order_3(knot_vector_sequence_level,vector,spline
 
 def LRHB_spline_point_calculate_2d(control_point,control_point_value,knot_vector,vector):
 
-    vector_position = vector_position_find(knot_vector,vector)
+    vector_position = vector_position_find_2d(knot_vector,vector)
 
     if (vector_position[2] > vector_position[5]):
 
@@ -1329,36 +1490,12 @@ def LRHB_spline_point_calculate_2d(control_point,control_point_value,knot_vector
 
 def LRHB_spline_point_calculate_3d(control_point_1,control_point_2,control_point_value,knot_vector_1,knot_vector_2,vector):
 
-    vector_position_1 = vector_position_find(knot_vector_1,vector[0])
-    vector_position_2 = vector_position_find(knot_vector_2,vector[1])
+    vector_position = vector_position_find_3d(knot_vector_1,knot_vector_2,vector)
 
-    if (vector_position_1[2] == vector_position_2[2]):
-
-        number_1 = vector_position_1[0]
-        number_2 = vector_position_2[0]
-        block = vector_position_1[1]
-        level = vector_position_1[2]
-
-    elif (vector_position_1[2] == vector_position_2[5]):
-
-        number_1 = vector_position_1[0]
-        number_2 = vector_position_2[3]
-        block = vector_position_1[1]
-        level = vector_position_1[2]
-
-    elif (vector_position_1[5] == vector_position_2[2]):
-
-        number_1 = vector_position_1[5]
-        number_2 = vector_position_2[2]
-        block = vector_position_2[1]
-        level = vector_position_2[2]
-
-    else:
-
-        number_1 = vector_position_1[5]
-        number_2 = vector_position_2[5]
-        block = vector_position_1[3]
-        level = vector_position_1[4]
+    level = vector_position[0]
+    block = vector_position[1]
+    number_1 = vector_position[2]
+    number_2 = vector_position[3]
 
     knot_vector_1_sequence = knot_vector_sequence_find(knot_vector_1,number_1,block,level)
     knot_vector_2_sequence = knot_vector_sequence_find(knot_vector_2,number_2,block,level)
@@ -1490,26 +1627,24 @@ def LRHB_spline_point_calculate_3d(control_point_1,control_point_2,control_point
 
             for m1 in range(order[0]+1):
 
-                point_1_block = list(np.zeros(2))   
-
-                for m2 in range(order[1]+1):
-
-                    if (i2+m2 >= len(control_point_2[l][b])):
-
-                        continue
-
-                    else:
-
-                        point_1_block[0] = point_1_block[0]+control_point_2[l][b][i2+m2]*LRHB_spline_2[l][i2+m2]
-                        point_1_block[1] = point_1_block[1]+control_point_value[l][b][i1+m1][i2+m2]*LRHB_spline_2[l][i2+m2]
-
-                # point_1_level.append(point_1_block)
+                point_1_block = list(np.zeros(2))
 
                 if (i1+m1 >= len(control_point_1[l][b])):
 
                     continue
 
                 else:
+
+                    for m2 in range(order[1]+1):
+
+                        if (i2+m2 >= len(control_point_2[l][b])):
+
+                            continue
+
+                        else:
+
+                            point_1_block[0] = point_1_block[0]+control_point_2[l][b][i2+m2]*LRHB_spline_2[l][i2+m2]
+                            point_1_block[1] = point_1_block[1]+control_point_value[l][b][i1+m1][i2+m2]*LRHB_spline_2[l][i2+m2]
 
                     point[0] = point[0]+control_point_1[l][b][i1+m1]*LRHB_spline_1[l][i1+m1]
                     point[1] = point[1]+point_1_block[0]*LRHB_spline_1[l][i1+m1]
@@ -2250,7 +2385,7 @@ def tangent_vector_calculate(data_point,data_point_value):
 
     return first_tangent_vector,last_tangent_vector
 
-def vector_position_find(knot_vector,vector):
+def vector_position_find_2d(knot_vector,vector):
 
     knot_vector_level = len(knot_vector)
 
@@ -2287,11 +2422,59 @@ def vector_position_find(knot_vector,vector):
 
     return left_number,left_block,left_level,right_number,right_block,right_level
 
+def vector_position_find_3d(knot_vector_1,knot_vector_2,vector):
+
+    knot_vector_level = len(knot_vector_1)
+
+    for l in range(knot_vector_level):
+
+        len_knot_vector_block = len(knot_vector_1[l])
+
+        for b in range(len_knot_vector_block):
+
+            len_knot_vector_1 = len(knot_vector_1[l][b])
+            len_knot_vector_2 = len(knot_vector_2[l][b])
+
+            for n1 in range(len_knot_vector_1-1):
+
+                for n2 in range(len_knot_vector_2):
+
+                    if (vector[0] >= knot_vector_1[l][b][n1] and vector[0] <= knot_vector_1[l][b][n1+1] and vector[1] >= knot_vector_2[l][b][n2] and vector[1] <= knot_vector_2[l][b][n2+1]):
+
+                        level = l
+                        block = b
+
+    len_knot_vector_1 = len(knot_vector_1[level][block])
+
+    left_number_1 = len_knot_vector_1-1
+    right_number_1 = len_knot_vector_1
+
+    for n1 in range(len_knot_vector_1-1):
+
+        if (vector[0] >= knot_vector_1[level][block][n1] and vector[0] < knot_vector_1[level][block][n1+1]):
+
+            left_number_1 = n1
+            right_number_1 = n1+1
+            break
+
+    left_number_2 = len_knot_vector_2-1
+    right_number_2 = len_knot_vector_2
+
+    for n2 in range(len_knot_vector_2-1):
+
+        if (vector[1] >= knot_vector_2[level][block][n2] and vector[1] < knot_vector_2[level][block][n2+1]):
+
+            left_number_2 = n2
+            right_number_2 = n2+1
+            break            
+
+    return level,block,left_number_1,right_number_1,left_number_2,right_number_2
+
 def vector_sequence_find(knot_vector,vector):
 
     knot_vector_sequence = []
 
-    vector_position = vector_position_find(knot_vector,vector)
+    vector_position = vector_position_find_2d(knot_vector,vector)
 
     if (vector_position[1] >= vector_position[3]):
 
