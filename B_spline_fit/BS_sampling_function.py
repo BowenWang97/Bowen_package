@@ -560,6 +560,10 @@ def exterior_algebra_max_information_3d(data_point,data_point_value,point_delta,
 
     fit_point = BS.fit_3d(data_point,data_point_value,point_delta,order)
 
+    point_delta_decimal_places_1 = len(str(point_delta[0]).split('.')[1])
+    point_delta_decimal_places_2 = len(str(point_delta[1]).split('.')[1])
+
+
     len_fit_point_1 = len(fit_point[0])
     len_fit_point_2 = len(fit_point[1])
 
@@ -612,7 +616,7 @@ def exterior_algebra_max_information_3d(data_point,data_point_value,point_delta,
 
                         weight = weight+abs(np.linalg.det(matrix))
 
-            weight = weight
+            weight = weight*abs(fit_point[0][n1]-data_point[0][i1])*abs(fit_point[0][n1]-data_point[0][i1+1])*abs(fit_point[1][n2]-data_point[1][i2])*abs(fit_point[1][n2]-data_point[1][i2])
 
             if (weight > max_weight):
 
@@ -620,6 +624,9 @@ def exterior_algebra_max_information_3d(data_point,data_point_value,point_delta,
                 max_point[1] = fit_point[1][n2]
 
                 max_weight = weight
+
+    max_point[0] = round(max_point[0],point_delta_decimal_places_1)
+    max_point[1] = round(max_point[1],point_delta_decimal_places_2)
 
     return max_point
 
