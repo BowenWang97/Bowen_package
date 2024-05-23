@@ -1961,7 +1961,7 @@ def position_find(knot_vector,vector):
 
     for n in range(len_knot_vector-1):
 
-        if ((vector-knot_vector[n]) >= 0 and (vector-knot_vector[n+1]) < 0):
+        if (vector >= knot_vector[n] and vector < knot_vector[n+1]):
 
             i = n
             break
