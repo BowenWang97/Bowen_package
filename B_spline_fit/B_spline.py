@@ -772,7 +772,7 @@ def fit_3d(data_point,data_point_value,point_delta,order=[3,3]):
 
     for d in range(2):
 
-        vector_delta[d] = point_delta[d]/50
+        vector_delta[d] = point_delta[d]/10
 
     knot_vector = knot_vector_calculate_3d(data_point,data_point_value)
 
