@@ -329,7 +329,9 @@ def exterior_algebra_max_value_3d(data_point_1,data_point_2,data_point_value,poi
 
                             weight = weight+abs(np.linalg.det(matrix))
 
-                weight = weight*abs(fit_point[2][n1][n2])
+                weight = weight
+
+                # weight = weight*abs(fit_point[2][n1][n2])
 
                 # weight = weight*(fit_point[0][n1]-data_point_1[p1[2]][p1[1]][p1[0]])*(fit_point[0][n1]-data_point_1[p1[5]][p1[4]][p1[3]])*(fit_point[1][n2]-data_point_2[p1[2]][p1[1]][p1[0]])*(fit_point[1][n2]-data_point_2[p1[5]][p1[4]][p1[3]])
 
@@ -450,7 +452,9 @@ def exterior_algebra_max_value_3d(data_point_1,data_point_2,data_point_value,poi
 
                                 weight = weight+abs(np.linalg.det(matrix))
 
-                    weight = weight*abs(fit_point[2][n1][n2])
+                    weight = weight
+
+                    # weight = weight*abs(fit_point[2][n1][n2])
 
                     # weight = weight*(fit_point[0][n1]-data_point_1[p1[2]][p1[1]][p1[0]])*(fit_point[0][n1]-data_point_1[p1[5]][p1[4]][p1[3]])*(fit_point[1][n2]-data_point_2[p1[2]][p1[1]][p1[0]])*(fit_point[1][n2]-data_point_2[p1[5]][p1[4]][p1[3]])
 
