@@ -1980,7 +1980,7 @@ def tangent_vector_calculate(data_point,data_point_value):
     first_tangent_vector[1] = data_point_value[1]-data_point_value[0]
     last_tangent_vector[1] = data_point_value[len_knot_vector-1]-data_point_value[len_knot_vector-2]
 
-    return first_tangent_vector,last_tangent_vector
+    return list(first_tangent_vector),list(last_tangent_vector)
 
 def tangent_vector_calculate_3d(data_point,data_point_value):
 
