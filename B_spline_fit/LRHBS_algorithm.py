@@ -20,8 +20,8 @@ def LRHBS_sample_point_add_3d(data_point_1,data_point_2,new_point,level):
 
     elif (level+1 > len(data_point_1)):
 
-        data_point_1.append([new_point[0]])
-        data_point_2.append([new_point[1]])
+        data_point_1.append([[new_point[0]]])
+        data_point_2.append([[new_point[1]]])
 
     else:
 
