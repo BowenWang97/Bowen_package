@@ -34,7 +34,7 @@ def yield_calculate_1d(parameter,parameter_delta,parameter_variance,performance,
 
         yield_performance[i] = yield_sum/distribution_sum
 
-    return(yield_parameter,yield_performance)
+    return(list(yield_parameter),list(yield_performance))
 
 def yield_calculate_2d(parameter_1,parameter_1_delta,parameter_1_variance,parameter_2,parameter_2_delta,parameter_2_variance,performance,performance_condition):
 
