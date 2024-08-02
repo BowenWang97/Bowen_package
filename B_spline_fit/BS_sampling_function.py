@@ -2,12 +2,19 @@ import math
 import numpy as np
 import B_spline as BS
 
+def B_spline_sample_point_add_2d(data_point,next_point):
+
+    i = BS.position_find(data_point,next_point)
+
+    data_point.insert(i+1,next_point)
+
+    return data_point
+
 def exterior_algebra_max_to_zero_2d(data_point,point_delta,order=3):
 
     fit_point = BS.fit_2d(data_point,point_delta,order)
 
-    size_fit_point = fit_point.shape
-    len_fit_point = size_fit_point[1]
+    len_fit_point = len(fit_point[0])
 
     vector = np.zeros(shape = (2,2))
     weight_0 = 0
