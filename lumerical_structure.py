@@ -3895,6 +3895,48 @@ def Si3N4_grating_coupler_2d(path,filename,grating_period):
         fdtd.feval(path+"\\"+filename+".lsf")
         fdtd.save(path+"\\"+filename+".fsp")
 
+def get_efficiency_in(path,filename):
+
+    with lumapi.FDTD() as fdtd:
+
+        fdtd.load(path+"\\"+filename+".fsp")
+
+        monitor_input = fdtd.getresult("power_monitor_in","T")
+        monitor_input_f = monitor_input["f"]
+        monitor_input_T = monitor_input["T"]
+
+    wavelength = list(3e17/monitor_input_f)
+    input_efficiency = list(np.zeros(len(wavelength)))
+
+    for i in range(len(wavelength)):
+
+        input_efficiency[i] = 10*np.log10(monitor_input_T[i])
+
+    sio.savemat(path+"\\"+filename+".mat",{"wavelength":wavelength,"input_efficiency":input_efficiency})
+
+    return wavelength,input_efficiency
+
+def get_efficiency_out(path,filename):
+
+    with lumapi.FDTD() as fdtd:
+
+        fdtd.load(path+"\\"+filename+".fsp")
+
+        monitor_output = fdtd.getresult("power_monitor_output","T")
+        monitor_output_f = monitor_output["f"]
+        monitor_output_T = monitor_output["T"]
+
+    wavelength = list(3e17/monitor_output_f)
+    output_efficiency = list(np.zeros(len(wavelength)))
+
+    for i in range(len(wavelength)):
+
+        output_efficiency[i] = 10*np.log10(monitor_output_T[i])
+
+    sio.savemat(path+"\\"+filename+".mat",{"wavelength":wavelength,"output_efficiency":output_efficiency})
+
+    return wavelength,output_efficiency
+
 def get_mode_efficiency(path,filename):
 
     with lumapi.FDTD() as fdtd:
@@ -3914,5 +3956,3 @@ def get_mode_efficiency(path,filename):
         mode_efficiency[len_wavelegnth] = 10*np.log10(mode_monitor_output_Tf[len_wavelegnth])
 
     sio.savemat(path+"\\"+filename+".mat",{"wavelength":wavelength,"mode_efficiency":mode_efficiency})
-
-    return wavelength,mode_efficiency
