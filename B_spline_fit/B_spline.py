@@ -269,8 +269,7 @@ def B_spline_point_derivative_calculate_2d(control_point,knot_vector,vector,deri
 
 def control_point_calculate_2d(data_point,first_tangent_vector,last_tangent_vector,knot_vector,order=3):
 
-    size_data_point = data_point.shape
-    len_data_point = size_data_point[1]
+    len_data_point = len(data_point[0])
 
     control_point = np.zeros(shape = (2,len_data_point+2))
 
@@ -624,8 +623,7 @@ def find_max_2d(data_point,point_delta,order=3):
 
 def fit_2d(data_point,point_delta,order=3):
 
-    size_data_point = data_point.shape
-    len_data_point = size_data_point[1]
+    len_data_point = len(data_point[0])
 
     point_number = int((max(data_point[0])-min(data_point[0]))/point_delta)
 
@@ -667,7 +665,7 @@ def fit_2d(data_point,point_delta,order=3):
 
             m = m+1
 
-    return fit_point
+    return fit_point.tolist()
 
 def fit_2d_3d(control_point,data_point,knot_vector,point_delta,order=3):
 
@@ -1658,8 +1656,7 @@ def knot_point_vector_calculate_2d(control_point,data_point,knot_vector,order,po
 
 def knot_vector_calculate_2d(data_point):
 
-    size_data_point = data_point.shape
-    len_data_point = size_data_point[1]
+    len_data_point = len(data_point[0])
 
     knot_vector = np.zeros(len_data_point)
 
