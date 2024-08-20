@@ -2,6 +2,83 @@ import math
 import numpy as np
 import LRHB_spline as LRHBS
 
+def delete_extra_zero(point_delta):
+
+    if isinstance(point_delta,int):
+
+        return point_delta
+    
+    else:
+
+        point_delta = str(point_delta).rstrip('0')
+
+        if point_delta.endswith('.'):
+
+            point_delta = int(point_delta.rstrip('.'))
+
+            return point_delta
+        
+        else:
+
+            return float(point_delta)
+
+def exterior_algebra_max_information_2d(data_point,point_delta):
+
+    point_number = int((max(data_point[0][0][0])-min(data_point[0][0][0]))/point_delta)
+
+    fit_point = LRHBS.fit_2d(data_point[0],data_point[1],point_number)
+
+    if isinstance(point_delta,float):
+
+        point_delta_decimal_places = len(str(point_delta).split('.')[1])
+
+    else:
+
+        point_delta_decimal_places = 0
+
+    len_fit_point = len(fit_point[0])
+
+    vector = np.zeros(shape = (2,2))
+    weight_0 = 0
+
+    for n in range(len_fit_point-1):
+
+        data_point_position = LRHBS.vector_position_find_2d(data_point[0],fit_point[0][n])
+
+        l = data_point_position[2]
+        b = data_point_position[1]
+        n = data_point_position[0]
+
+        if (l == 0):
+
+            vector[0][0] = fit_point[0][n]-data_point[0][l][b][n]
+            vector[0][1]= fit_point[0][n]-data_point[0][l][b][n+1]
+            vector[1][0] = fit_point[1][n]-data_point[1][l][b][n]
+            vector[1][1]= fit_point[1][n]-data_point[1][l][b][n+1]
+
+            weight = abs(vector[0][0]*vector[1][1]-vector[0][1]*vector[1][0])
+        
+        else:
+
+            data_point_block = LRHBS.data_point_block_add(data_point[0],b,l)
+
+            vector[0][0] = fit_point[0][n]-data_point_block[n]
+            vector[0][1]= fit_point[0][n]-data_point_block[n+1]
+            vector[1][0] = fit_point[1][n]-data_point[1][l][b][n]
+            vector[1][1]= fit_point[1][n]-data_point[1][l][b][n+1]
+
+            weight = abs(vector[0][0]*vector[1][1]-vector[0][1]*vector[1][0])
+
+        if (weight > weight_0):
+
+            max_point = fit_point[0][n]
+
+            weight_0 = weight
+
+    max_point = round(max_point,point_delta_decimal_places)
+
+    return max_point
+
 def exterior_algebra_max_information_3d(data_point_1,data_point_2,data_point_value,point_delta,level):
 
     fit_point = LRHBS.fit_3d(data_point_1,data_point_2,data_point_value,point_delta)
@@ -469,6 +546,128 @@ def exterior_algebra_max_value_3d(data_point_1,data_point_2,data_point_value,poi
     max_point[1] = round(max_point[1],point_delta_decimal_places_2)
 
     return max_point
+
+def distance_max_information_2d(data_point,point_delta):
+
+    point_number = int((max(data_point[0][0][0])-min(data_point[0][0][0]))/point_delta)
+
+    fit_point = LRHBS.fit_2d(data_point[0],data_point[1],point_number)
+
+    point_delta_decimal_places = len(str(point_delta).split('.')[1])
+
+    len_fit_point = len(fit_point[0])
+
+    vector = np.zeros(shape = (2,2))
+    weight_0 = 0
+
+    for n in range(len_fit_point-1):
+
+        data_point_position = LRHBS.vector_position_find_2d(data_point[0],fit_point[0][n])
+
+        l = data_point_position[2]
+        b = data_point_position[1]
+        n = data_point_position[0]
+
+        vector[0][0] = fit_point[0][n]-data_point[0][l][b][n]
+        vector[0][1]= fit_point[0][n]-data_point[0][l][b][n+1]
+        vector[1][0] = fit_point[1][n]-data_point[1][l][b][n]
+        vector[1][1]= fit_point[1][n]-data_point[1][l][b][n+1]
+
+        weight = np.sqrt(vector[0][0]*vector[0][0]+vector[1][0]*vector[1][0])+np.sqrt(vector[0][1]*vector[0][1]+vector[1][1]*vector[1][1])
+
+        if (weight > weight_0):
+
+            max_point = fit_point[0][n]
+
+            weight_0 = weight
+
+    max_point = round(max_point,point_delta_decimal_places)
+
+    return max_point
+
+def LRHBS_sample_point_add_2d(data_point,new_point,point_delta,level):
+
+    new_point = new_point.tolist()
+
+    data_point_position = LRHBS.vector_position_find_2d(data_point,new_point)
+
+    if (data_point_position[2] >= data_point_position[5]):
+
+        n = data_point_position[0]
+        b = data_point_position[1]
+        l = data_point_position[2]
+
+    else:
+
+        n = data_point_position[3]
+        b = data_point_position[4]
+        l = data_point_position[5]
+
+    loop_status = True
+
+    while (loop_status):
+
+        if (level > data_point_position[2]):
+
+            if (data_point_position[0] < 1 or data_point_position[3] > len(data_point[l][b])-2):
+                
+                point_delta_decimal_places = len(str(point_delta*10).split('.')[1])
+
+                new_point = round(new_point,point_delta_decimal_places)
+
+                data_point_position = LRHBS.vector_position_find_2d(data_point,new_point)
+
+                if (data_point_position[2] >= data_point_position[5]):
+
+                    n = data_point_position[0]
+                    b = data_point_position[1]
+                    l = data_point_position[2]
+
+                else:
+
+                    n = data_point_position[3]
+                    b = data_point_position[4]
+                    l = data_point_position[5]
+
+                level = level-1
+
+            else:
+
+                loop_status = False
+
+        else:
+
+            loop_status = False
+
+    if (level > data_point_position[2]):
+
+        if (level == len(data_point)-1):
+
+            data_point[level][b].insert(n,new_point)
+
+        else:
+
+            data_point.append([[new_point]])
+
+    else:
+
+        if (new_point not in data_point[l][b]):
+
+            if (l == 0):
+
+                data_point[l][b].insert(n+1,new_point)
+
+            else:
+
+                data_point[level][b].insert(n,new_point)
+
+    # while (loop_status):
+
+    #     if (level > data_point_position[2]):
+
+    #         if (data_point_position[0] < 2 or data_point_position[3] > len(data_point[data_point_position[2]][data_point_position[1]])-2):
+
+    #             point_delta_decimal_places = len(str(point_delta[0]*10).split('.')[1])
 
 def LRHBS_sample_point_add_3d(data_point_1,data_point_2,new_point,point_delta,level):
 
