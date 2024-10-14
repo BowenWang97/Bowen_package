@@ -278,7 +278,7 @@ def second_max(data):
 
     data_sort = sorted(data)
 
-    if len(data == 2):
+    if (len(data) == 2):
 
         return data_sort[0]
     
