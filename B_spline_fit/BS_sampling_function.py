@@ -661,6 +661,10 @@ def exterior_algebra_max_information_4d(data_point,data_point_value,point_delta,
 
                 i3 = BS.position_find(data_point[2],fit_point[2][n3])
 
+                if (fit_point[0][n1] == data_point[0][i1] & fit_point[1][n2] == data_point[1][i2] & fit_point[2][n3] == data_point[2][i3]):
+
+                    break
+
                 weight = 0
 
                 vector[0][0] = fit_point[0][n1]-data_point[0][i1]
