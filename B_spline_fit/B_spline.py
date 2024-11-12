@@ -1000,9 +1000,9 @@ def fit_4d(data_point,data_point_value,point_delta,order=[3,3,3]):
     vector_number_2 = int(max(knot_vector[1])/vector_delta[1])
     vector_number_3 = int(max(knot_vector[2])/vector_delta[2])
 
-    point_vector_1 = np.zeros(vector_number_1)
-    point_vector_2 = np.zeros(vector_number_2)
-    point_vector_3 = np.zeros(vector_number_3)
+    point_vector_1 = np.zeros(vector_number_1+1)
+    point_vector_2 = np.zeros(vector_number_2+1)
+    point_vector_3 = np.zeros(vector_number_3+1)
 
     for u1 in range(vector_number_1):
 
