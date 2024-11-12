@@ -661,7 +661,7 @@ def exterior_algebra_max_information_4d(data_point,data_point_value,point_delta,
 
                 i3 = BS.position_find(data_point[2],fit_point[2][n3])
 
-                if (fit_point[0][n1] == data_point[0][i1] & fit_point[1][n2] == data_point[1][i2] & fit_point[2][n3] == data_point[2][i3]):
+                if ((fit_point[0][n1]-data_point[0][i1] == 0) & (fit_point[1][n2]-data_point[1][i2] == 0) & (fit_point[2][n3]-data_point[2][i3] == 0)):
 
                     break
 
@@ -742,6 +742,30 @@ def exterior_algebra_max_information_4d(data_point,data_point_value,point_delta,
 
 def exterior_algebra_max_information_and_max_information_4d(data_point,data_point_value_1,data_point_value_2,point_delta,order=[3,3,3]):
 
+    if (len(str(point_delta[0]).split('.')) == 1):
+
+        point_delta_decimal_places_1 = 0
+    
+    else:
+        
+        point_delta_decimal_places_1 = len(str(point_delta[0]).split('.')[1])
+
+    if (len(str(point_delta[1]).split('.')) == 1):
+
+        point_delta_decimal_places_2 = 0
+    
+    else:
+    
+        point_delta_decimal_places_2 = len(str(point_delta[1]).split('.')[1])
+
+    if (len(str(point_delta[2]).split('.')) == 1):
+
+        point_delta_decimal_places_3 = 0
+    
+    else:
+
+        point_delta_decimal_places_3 = len(str(point_delta[2]).split('.')[1])
+
     fit_point_1 = BS.fit_4d(data_point,data_point_value_1,point_delta,order)
     fit_point_2 = BS.fit_4d(data_point,data_point_value_2,point_delta,order)
 
@@ -763,6 +787,10 @@ def exterior_algebra_max_information_and_max_information_4d(data_point,data_poin
             for n3 in range(len_fit_point_3-1):
 
                 i3 = BS.position_find(data_point[2],fit_point_1[2][n3])
+
+                if ((round(fit_point_1[0][n1],point_delta_decimal_places_1) in data_point[0]) & (round(fit_point_1[1][n2],point_delta_decimal_places_2) in data_point[1]) & (round(fit_point_1[2][n3],point_delta_decimal_places_3) in data_point[2])):
+
+                    break
 
                 weight = 0
 
@@ -907,6 +935,10 @@ def exterior_algebra_max_information_and_max_information_4d(data_point,data_poin
                     max_point[2] = fit_point_1[2][n3]
 
                     weight_0 = weight
+
+    max_point[0] = round(max_point[0],point_delta_decimal_places_1)
+    max_point[1] = round(max_point[1],point_delta_decimal_places_2)
+    max_point[2] = round(max_point[2],point_delta_decimal_places_3)
 
     return max_point
 
