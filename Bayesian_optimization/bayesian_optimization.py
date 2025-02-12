@@ -1,8 +1,10 @@
+import numpy as np
 import torch
+import scipy as sci
 
 class kernel_function():
 
-    def __init__(self, data, length_scale = None, kernel_name = "matern_nu_5"):
+    def __init__(self, data, length_scale = None, kernel_name = "matern_nu_5", amplitude = torch.tensor(1.)):
 
         super().__init__()
     
@@ -13,7 +15,7 @@ class kernel_function():
         self.data_number = self.data_dimension[0]
         self.input_dimension = self.data_dimension[1] - 1
 
-        self.amplitude = torch.tensor(1.)
+        self.amplitude = amplitude
 
         if (length_scale == None):
         
@@ -74,7 +76,7 @@ class kernel_function():
         for d in range(self.input_dimension):
 
             self.relenvant_distance_data[:, :] = self.relenvant_distance_data[:, :] + torch.abs(self.input[:, d].expand(self.data_number, self.data_number) - self.input[:, d].expand(self.data_number, self.data_number).transpose(0, 1)) / self.length_scale[d]
-        
+
         self.kernel_data_matrix = self.all_kernel_function[self.kernel_name](self.relenvant_distance_data)
         self.kernel_sample_matrix = self.all_kernel_function[self.kernel_name](torch.tensor(0.))
 
@@ -82,9 +84,15 @@ class kernel_function():
 
         relenvant_distance_sample = torch.zeros(self.data_number)
 
-        for d in range(self.input_dimension):
+        if (self.input_dimension == 1):
 
-            relenvant_distance_sample = relenvant_distance_sample + torch.abs(self.input[:, d] - sample[d]) / self.length_scale[d]
+            relenvant_distance_sample = torch.abs(self.input[:, 0] - sample) / self.length_scale
+
+        else:
+
+            for d in range(self.input_dimension):
+
+                relenvant_distance_sample = relenvant_distance_sample + torch.abs(self.input[:, d] - sample[d]) / self.length_scale[d]
 
         kernel_data_sample_matrix = self.all_kernel_function[self.kernel_name](relenvant_distance_sample)        
    
@@ -96,7 +104,7 @@ class kernel_function():
     
 class gaussian_progress():
 
-    def __init__(self, kernel_self, sample,  data_noise = None, acquisition_function_name = "expected_improvement"):
+    def __init__(self, kernel_self, sample,  data_noise = None, acquisition_function_name = "expected_improvement", xi = torch.tensor(1.), kappa = torch.tensor(2.)):
 
         super().__init__()
 
@@ -123,8 +131,8 @@ class gaussian_progress():
 
         self.sample_number = self.sample.size()[0]
 
-        self.xi = torch.tensor(1.)
-        self.kappa = torch.tensor(2.)
+        self.xi = xi
+        self.kappa = kappa
 
         self.all_acquisition_function = {
             "expected_improvement" : self.expected_improvement,
@@ -140,9 +148,11 @@ class gaussian_progress():
         for n in range(self.sample_number):
 
             kernel_data_sample_matrix = kernel_function.kernel_matrix(self, self.sample[n])
-
+            
             self.mu[n] = torch.linalg.multi_dot((kernel_data_sample_matrix, torch.linalg.inv(self.kernel_data_matrix + self.data_sigma * torch.eye(self.data_number)), self.output))
             self.sigma[n] = self.kernel_sample_matrix - torch.linalg.multi_dot((kernel_data_sample_matrix, torch.linalg.inv(self.kernel_data_matrix + self.data_sigma * torch.eye(self.data_number)), torch.unsqueeze(kernel_data_sample_matrix, 1)))
+
+        self.sigma = torch.clamp(self.sigma, min = 0.)
 
         return self.mu, self.sigma
     
@@ -186,7 +196,7 @@ class gaussian_progress():
 
         z = self.standardized_improvement()
 
-        ei = (self.mu - torch.max(self.output) - self.xi) * self.standard_normal_cdf(z) + self.sigma * self.standard_normal_pdf(z)
+        ei = (self.mu - torch.max(self.output) - self.xi) * torch.tensor(sci.stats.norm.cdf(z)) + self.sigma * torch.tensor(sci.stats.norm.pdf(z))
 
         return ei
     
@@ -194,7 +204,7 @@ class gaussian_progress():
 
         z = self.standardized_improvement()
 
-        pi = self.standard_normal_cdf(z)
+        pi = torch.tensor(sci.stats.norm.cdf(z))
 
         return pi
     
@@ -222,59 +232,87 @@ class sampling():
 
         self.acquisition_function_name = gaussian_progress_self.acquisition_function_name
         self.all_acquisition_function = gaussian_progress_self.all_acquisition_function
+        self.data_number = gaussian_progress_self.data_number
         self.input_dimension = gaussian_progress_self.input_dimension
         self.sample = gaussian_progress_self.sample
     
-    def next_sample(self, next_sample_number):
+    def next_sample(self, next_sample_number, initial_input):
+
+        initial_next_sample_number = next_sample_number
 
         af = gaussian_progress.acquisition_function(self)
 
-        values, indices = torch.topk(af, next_sample_number)
-
         ns = torch.zeros(next_sample_number, self.input_dimension)
 
-        for n in range(next_sample_number):
+        loop_state = True
+        loop_time = 0
 
-            for d in range(self.input_dimension):
+        while(loop_state):
 
-                ns[n][d] = self.sample[indices[n]][d]
+            values, indices = torch.topk(af, next_sample_number)
 
-        # loop_state = True
+            ns_0 = torch.zeros(next_sample_number, self.input_dimension)
 
-        # while(loop_state):
+            index = []
 
-        #     values, indices = torch.topk(af, next_sample_number)
+            for n in range(next_sample_number):
 
-        #     ns = torch.zeros(next_sample_number, self.input_dimension)
+                if (self.input_dimension == 1):
 
-        #     for n in range(next_sample_number):
+                    ns_0[n][0] = self.sample[indices[n]]
 
-        #         for d in range(self.input_dimension):
+                else:
 
-        #             ns[n][d] = self.sample[indices[n]][d]
+                    for d in range(self.input_dimension):
 
-        #     eq = torch.eq(initial_input, ns)
+                        ns_0[n][d] = self.sample[indices[n]][d]
 
-        #     for n in range(next_sample_number):
+            if_state = [True] * indices.shape[0]
 
-        #         if_state = True
+            for i in range(indices.shape[0]):
 
-        #         for d in range(self.input_dimension):
+                eq = torch.eq(initial_input, ns_0[i])
 
-        #             if (if_state and eq[n][d]):
+                for n in range(self.data_number):
 
-        #                 if_state = True
+                    if_state[i] = True
 
-        #             else:
+                    for d in range(self.input_dimension):
 
-        #                 if_state = False
-        #                 loop_state = False
+                        if (if_state and eq[n][d]):
 
-        #                 break
+                            if_state[i] = True
 
-        #         if (if_state):
+                        else:
 
-        #             next_sample_number = next_sample_number + 1
+                            if_state[i] = False                            
 
-        return ns
-    
+                            break
+
+                    if (if_state[i]):
+
+                        next_sample_number = initial_next_sample_number + loop_time
+
+                        break
+
+                if not (all(if_state)):
+
+                    loop_state = False
+
+                    index.append(indices[i])
+
+            loop_time = loop_time + 1
+
+        for n in range(initial_next_sample_number):
+
+            if (self.input_dimension == 1):
+
+                    ns[n][0] = self.sample[int(index[n])]
+
+            else:
+
+                for d in range(self.input_dimension):
+
+                    ns[n][d] = self.sample[int(index[n])][d]
+
+        return ns    
