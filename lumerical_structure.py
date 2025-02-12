@@ -1019,7 +1019,7 @@ def SOI_grating_coupler_2d_v2(path,filename,etch_depth,fiber_x,fill_factor,grati
     lsf_file.write('grating_number = 61;\n')
     lsf_file.write('grating_period = %.3f*um;\n'%grating_period)
     lsf_file.write('grating_width = 10*um;\n')
-    lsf_file.write('mesh_accuracy = 1;\n')
+    lsf_file.write('mesh_accuracy = 2;\n')
     lsf_file.write('region_gap = 5*um;\n')
     lsf_file.write('side_waveguide_length = 20*um;\n')
     lsf_file.write('Si_mat = "Si (Silicon) - Palik";\n')
