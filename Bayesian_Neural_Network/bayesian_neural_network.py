@@ -65,8 +65,8 @@ class Bayesian_Layer(nn.Module):
         self.weight_mu = nn.Parameter(torch.zeros(self.output_dimension, self.input_dimension))
         self.bias_mu =  nn.Parameter(torch.zeros(self.output_dimension))
 
-        self.weight_rho = nn.Parameter(torch.zeros(self.output_dimension, self.input_dimension) * -3.)        
-        self.bias_rho = nn.Parameter(torch.zeros(self.output_dimension) * -3.)
+        self.weight_rho = nn.Parameter(torch.ones(self.output_dimension, self.input_dimension) * -3.)        
+        self.bias_rho = nn.Parameter(torch.ones(self.output_dimension) * -3.)
 
         self.weight = None
         self.bias = None
