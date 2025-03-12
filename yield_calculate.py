@@ -5,12 +5,12 @@ def yield_calculate_1d(parameter,parameter_delta,parameter_variance,performance,
 
     len_parameter = len(parameter)
 
-    parameter_start = parameter[0]+2*parameter_variance
-    parameter_stop = parameter[len_parameter-1]-2*parameter_variance
+    parameter_start = parameter[0]+3*parameter_variance
+    parameter_stop = parameter[len_parameter-1]-3*parameter_variance
 
     len_yield_parameter = int((parameter_stop-parameter_start)/parameter_delta)+1
 
-    number_dif = int(2*parameter_variance/parameter_delta)
+    number_dif = int(3*parameter_variance/parameter_delta)
 
     yield_parameter = np.zeros(len_yield_parameter)
     yield_performance = np.zeros(len_yield_parameter)
@@ -24,14 +24,13 @@ def yield_calculate_1d(parameter,parameter_delta,parameter_variance,performance,
 
         for j in range(2*number_dif+1):
 
-            gaussian = math.exp(-(parameter[i+j]-yield_parameter[i])*(parameter[i+j]-yield_parameter[i])/(2*parameter_variance*parameter_variance))
+            gaussian = math.exp(-(parameter[i+j]-yield_parameter[i])*(parameter[i+j]-yield_parameter[i])/(3*parameter_variance*parameter_variance))
 
             distribution_sum = distribution_sum+gaussian
 
             if (performance[i+j] >= performance_condition):
 
                 yield_sum = yield_sum+gaussian
-
         yield_performance[i] = yield_sum/distribution_sum
 
     return(list(yield_parameter),list(yield_performance))
