@@ -208,7 +208,7 @@ class two_layer_BNN_VI(nn.Module):
     
 class MCMC(nn.Module):
 
-    def __init__(self, module, input, output, output_noise = 1., prior_sigma = 1., proposal_step = 0.01):
+    def __init__(self, module, input, output, output_noise = 1., prior_sigma = 1., proposal_step = 0.1):
 
         super(MCMC, self).__init__()
 
@@ -218,21 +218,21 @@ class MCMC(nn.Module):
         self.output_noise = output_noise
         self.prior_sigma = prior_sigma
         self.proposal_step = proposal_step
-        self.initial_theta = torch.cat([parameter.detach().view(-1) for parameter in self.module.parameters()])
+        self.initial_theta = torch.cat([parameter.detach().clone().view(-1) for parameter in self.module.parameters()])
     
     def set_theta(self, theta):
 
-        theta_offset = 0
+        with torch.no_grad():
 
-        for parameter in self.module.parameters():
+            theta_offset = 0
 
-            theta_number = parameter.numel()
+            for parameter in self.module.parameters():
 
-            with torch.no_grad():
+                theta_number = parameter.numel()                
 
                 parameter.copy_(theta[theta_offset : theta_offset+theta_number].view(parameter.size()).clone())
 
-            theta_offset = theta_offset + theta_number
+                theta_offset = theta_offset + theta_number
 
     def log_prior(self, theta):
 
@@ -250,36 +250,49 @@ class MCMC(nn.Module):
 
         return self.log_prior(theta) + self.log_likelihood()
     
+    # def potential_energy_gradient(self, theta):
+
+    #     self.module.zero_grad()
+    #     theta = theta.detach().clone().requires_grad_()
+    #     loss = -self.log_posterior(theta)
+    #     loss.backward()
+    #     gradient = []
+
+    #     for parameter in self.module.parameters():
+
+    #         gradient.append(parameter.grad.clone())
+
+    #     return gradient
+
     def potential_energy_gradient(self, theta):
 
-        self.module.zero_grad()
+        theta = theta.detach().clone().requires_grad_()
+        self.set_theta(theta)
+        # self.module.zero_grad()
         loss = -self.log_posterior(theta)
+        # gradient = torch.autograd.grad(loss, theta)[0]
         loss.backward()
-        gradient = []
-
-        for parameter in self.module.parameters():
-
-            gradient.append(parameter.grad.clone())
+        gradient = theta.grad.clone()
 
         return gradient
     
-    def leapfrog(self, proposal_theta, proposal_momentum):
+    def leapfrog(self, proposal_theta, proposal_momentum, direction):
 
         gradient = torch.cat([grad.detach().view(-1) for grad in self.potential_energy_gradient(proposal_theta)])
-        proposal_momentum = proposal_momentum - 0.5 * self.proposal_step * gradient
+        proposal_momentum = proposal_momentum + 0.5 * direction * self.proposal_step * gradient
 
         proposal_theta = proposal_theta + self.proposal_step * proposal_momentum
 
         gradient = torch.cat([grad.detach().view(-1) for grad in self.potential_energy_gradient(proposal_theta)])
-        proposal_momentum = proposal_momentum - 0.5 * self.proposal_step * gradient
+        proposal_momentum = proposal_momentum + 0.5 * direction * self.proposal_step * gradient
 
         return proposal_theta, proposal_momentum, gradient
 
-    def tree_building(self, theta, momentum, gradient, depth, hamilton_threshold, direction, max_delta = 1000.):
+    def binary_tree_building(self, theta, momentum, gradient, depth, hamilton_threshold, direction):
 
         if (depth == 0):
 
-            proposal_theta, proposal_momentum, gradient = self.leapfrog(theta, momentum)
+            proposal_theta, proposal_momentum, gradient = self.leapfrog(theta, momentum, direction)
 
             hamilton = - self.log_posterior (proposal_theta) + 0.5 * torch.sum(proposal_momentum * proposal_momentum)
 
@@ -289,15 +302,18 @@ class MCMC(nn.Module):
 
         else:
 
-            theta_minus, momentum_minus, gradient_minus, theta_plus, momentum_plus, gradient_plus, proposal_theta, valid_1, n1 = self.tree_building(theta, momentum, gradient, depth - 1, hamilton_threshold, direction)
+            theta_minus, momentum_minus, gradient_minus, theta_plus, momentum_plus, gradient_plus, proposal_theta, valid_1, n1 = \
+                self.binary_tree_building(theta, momentum, gradient, depth - 1, hamilton_threshold, direction)
 
             if (direction == -1):
 
-                theta_minus, momentum_minus, gradient_minus, _, _, _, proposal_theta_1, valid_2, n2 = self.tree_building(theta_minus, momentum_minus, gradient_minus, depth - 1, hamilton_threshold, direction)
+                theta_minus, momentum_minus, gradient_minus, _, _, _, proposal_theta_2, valid_2, n2 = \
+                    self.binary_tree_building(theta_minus, momentum_minus, gradient_minus, depth - 1, hamilton_threshold, direction)
 
             else:
 
-                _, _, _, theta_plus, momentum_plus, gradient_plus, proposal_theta_1, valid_2, n2 = self.tree_building(theta_plus, momentum_plus, gradient_plus, depth - 1, hamilton_threshold, direction)
+                _, _, _, theta_plus, momentum_plus, gradient_plus, proposal_theta_2, valid_2, n2 = \
+                    self.binary_tree_building(theta_plus, momentum_plus, gradient_plus, depth - 1, hamilton_threshold, direction)
 
             if ((n1 + n2) > 0):
 
@@ -307,9 +323,9 @@ class MCMC(nn.Module):
 
                 accept_ratio = 0
 
-            if torch.randn(1) < accept_ratio:
+            if torch.rand(1) < accept_ratio:
 
-                proposal_theta = proposal_theta_1
+                proposal_theta = proposal_theta_2
 
             valid = (valid_1 and valid_2 and not (torch.dot((theta_plus - theta_minus), momentum_minus) < 0 or torch.dot((theta_plus - theta_minus), momentum_plus) < 0))
 
@@ -317,7 +333,7 @@ class MCMC(nn.Module):
 
     def metropolis_hasting(self, sample_number = 10000):
 
-        self.samples = []
+        samples = []
         accept_count = 0
 
         current_theta = self.initial_theta
@@ -330,32 +346,33 @@ class MCMC(nn.Module):
             proposal_log_posterior = self.log_posterior(proposal_theta)
 
             accept_ratio = torch.exp(proposal_log_posterior - current_log_posterior)
+            accept_ratio = torch.clamp(accept_ratio, max = 1.0)
 
-            if torch.randn(1) < accept_ratio:
+            if torch.rand(1) < accept_ratio:
 
                 current_theta = proposal_theta
                 current_log_posterior = proposal_log_posterior
 
                 accept_count = accept_count + 1
 
-            self.samples.append(current_theta.clone())
+            samples.append(current_theta.clone())
 
             if (n % 100 == 0):
 
                 print(f"Sample {n}, Acceptance Rate: {accept_count / (n+1):.3f}")
 
-        return self.samples
+        return samples
     
     def hamiltonian_monte_carlo(self, sample_number = 10000, leapfrog_number = 10):
 
-        self.samples = []
+        samples = []
         accept_count = 0
 
-        current_theta = self.initial_theta        
+        current_theta = self.initial_theta 
 
         for n in range(sample_number):
 
-            proposal_theta = current_theta
+            proposal_theta = current_theta.clone()
             current_momentum = torch.randn_like(current_theta)
 
             gradient = torch.cat([grad.detach().view(-1) for grad in self.potential_energy_gradient(current_theta)])
@@ -378,25 +395,26 @@ class MCMC(nn.Module):
             proposal_kinetic_energy = 0.5* torch.sum(proposal_momentum * proposal_momentum)
 
             accept_ratio = torch.exp(current_potential_energy + current_kinetic_energy - proposal_potential_energy - proposal_kinetic_energy)
+            accept_ratio = torch.clamp(accept_ratio, max = 1.0)
 
-            if torch.randn(1) < accept_ratio:
+            if torch.rand(1) < accept_ratio:
 
                 current_theta = proposal_theta
                 current_momentum = proposal_momentum
 
                 accept_count = accept_count + 1
 
-            self.samples.append(current_theta.clone())
+            samples.append(current_theta.clone())
 
             if (n % 100 == 0):
 
                 print(f"Sample {n}, Acceptance Rate: {accept_count / (n+1):.3f}")
 
-        return self.samples
+        return samples
     
     def no_u_turn_sampler(self, sample_number = 10000, max_depth = 5):
 
-        self.samples = []
+        samples = []
 
         current_theta = self.initial_theta
 
@@ -408,7 +426,7 @@ class MCMC(nn.Module):
 
             hamilton = - self.log_posterior (current_theta) + 0.5 * torch.sum(current_momentum * current_momentum)
 
-            hamilton_threshold = torch.torch.randn(1).log().item() - hamilton.item()
+            hamilton_threshold = torch.log(torch.rand(1)) - hamilton
 
             theta_minus = current_theta.clone()
             theta_plus = current_theta.clone()
@@ -423,36 +441,39 @@ class MCMC(nn.Module):
 
             while (current_valid and (depth < max_depth)):
 
-                direction = torch.randint([-1, 1]).item()
+                direction = 2 * torch.randint(0, 2, ()).item() - 1
 
                 if (direction == -1):
 
-                    theta_minus, momentum_minus, gradient_minus, _, _, _, proposal_theta, valid, proposal_number = self.tree_building(theta_minus, momentum_minus, gradient_minus, depth - 1, hamilton_threshold, direction)
+                    theta_minus, momentum_minus, gradient_minus, _, _, _, proposal_theta, valid, proposal_number = self.binary_tree_building(theta_minus, momentum_minus, gradient_minus, depth, hamilton_threshold, direction)
 
                 else:
 
-                    _, _, _, theta_plus, momentum_plus, gradient_plus, proposal_theta, valid, proposal_number = self.tree_building(theta_plus, momentum_plus, gradient_plus, depth - 1, hamilton_threshold, direction)
+                    _, _, _, theta_plus, momentum_plus, gradient_plus, proposal_theta, valid, proposal_number = self.binary_tree_building(theta_plus, momentum_plus, gradient_plus, depth, hamilton_threshold, direction)
+
+                if (valid and (torch.rand(1) < proposal_number/current_number)):
+
+                    current_theta = proposal_theta
 
                 current_number = current_number + proposal_number
                 depth = depth +1
                 current_valid = (valid and not (torch.dot((theta_plus - theta_minus), momentum_minus) < 0 or torch.dot((theta_plus - theta_minus), momentum_plus) < 0))
 
-            current_theta = proposal_theta.clone()
             gradient = torch.cat([grad.detach().view(-1) for grad in self.potential_energy_gradient(current_theta)])
 
-            self.samples.append(current_theta.clone())
+            samples.append(current_theta.clone())
 
             if (n % 100 == 0):
 
-                print(f"Sample {n}")
+                print(f"Sample {n}, Acceptance Rate: {current_number / (n+1):.3f}")
 
-            return self.samples
+        return samples
     
-    def predict(self, input_test):
+    def predict(self, input_test, samples):
 
         predictions = []
 
-        for parameter in self.samples[::10]:
+        for parameter in samples:
 
             self.set_theta(parameter)
 
