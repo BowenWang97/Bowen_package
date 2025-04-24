@@ -482,3 +482,6 @@ class MCMC(nn.Module):
                 predictions.append(self.module(input_test).numpy())
 
         return predictions
+    
+# class one_layer_BNN_VI_MCMC(nn.Module):
+
