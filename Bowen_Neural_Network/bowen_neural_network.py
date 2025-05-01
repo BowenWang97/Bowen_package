@@ -4,7 +4,7 @@ import torch.nn as nn
 from torch.distributions import Normal
 
 class one_layer_ANN(nn.Module):
-
+    
     def __init__(self, input_dimension, hidden_dimension, output_dimension, nonlinear_layer_name = "sigmoid"):
 
         super(one_layer_ANN, self).__init__()
@@ -17,9 +17,10 @@ class one_layer_ANN(nn.Module):
         self.all_nonlinear_layer = {
             "sigmoid": nn.Sigmoid(),
             "relu": nn.ReLU()
-        }
+        }   
 
     def forward(self, input):
+
 
         out = self.hidden(input)
         out = self.all_nonlinear_layer[self.nonlinear_layer_name](out)
@@ -127,7 +128,7 @@ class one_layer_BNN_VI(nn.Module):
 
         return self.hidden.log_posterior + self.output.log_posterior
     
-    def sample_evidence_lower_bound(self, input, output, sample_number, sample_noise = 0.1):
+    def sample_evidence_lower_bound(self, input, output, sample_number, output_noise = 1.):
 
         sample_output = torch.zeros(sample_number, output.shape[0])
         sample_prior = torch.zeros(sample_number)
@@ -139,7 +140,7 @@ class one_layer_BNN_VI(nn.Module):
             sample_output[n] = self(input).reshape(-1)
             sample_prior[n] = self.log_prior()
             sample_posterior[n] = self.log_posterior()
-            sample_likelihood[n] = Normal(sample_output[n], sample_noise).log_prob(output.reshape(-1)).sum()
+            sample_likelihood[n] = Normal(sample_output[n], output_noise).log_prob(output.reshape(-1)).sum()
 
         log_prior = sample_prior.mean()
         log_posterior = sample_posterior.mean()
@@ -205,7 +206,7 @@ class two_layer_BNN_VI(nn.Module):
         loss = log_posterior - log_prior - log_likelihood
 
         return loss
-    
+
 class MCMC(nn.Module):
 
     def __init__(self, module, input, output, output_noise = 1., prior_sigma = 1., proposal_step = 0.1):
@@ -224,25 +225,29 @@ class MCMC(nn.Module):
 
         with torch.no_grad():
 
+            assert theta.numel() == sum(p.numel() for p in self.module.parameters())
+
             theta_offset = 0
 
             for parameter in self.module.parameters():
 
                 theta_number = parameter.numel()                
 
-                parameter.copy_(theta[theta_offset : theta_offset+theta_number].view(parameter.size()).clone())
+                parameter.copy_(theta[theta_offset : theta_offset+theta_number].view_as(parameter))
 
                 theta_offset = theta_offset + theta_number
 
     def log_prior(self, theta):
 
-        return -0.5 * torch.sum((theta / self.prior_sigma) * (theta / self.prior_sigma))
+        return -0.5 * torch.sum((theta / self.prior_sigma) **2)
 
     def log_likelihood(self):
         
         predict_output = self.module(self.input)
 
-        return -0.5 * torch.sum((self.output - predict_output) * (self.output - predict_output)) / self.output_noise / self.output_noise
+        n = self.output.numel()
+
+        return -0.5 * torch.sum((self.output - predict_output) ** 2) / self.output_noise ** 2 - 0.5 * n * torch.log(torch.tensor(2 * torch.pi * self.output_noise ** 2))
     
     def log_posterior(self, theta):
         
@@ -274,7 +279,7 @@ class MCMC(nn.Module):
         loss.backward()
         gradient = theta.grad.clone()
 
-        return gradient
+        return gradient.detach()
     
     def leapfrog(self, proposal_theta, proposal_momentum, direction):
 
@@ -294,7 +299,7 @@ class MCMC(nn.Module):
 
             proposal_theta, proposal_momentum, gradient = self.leapfrog(theta, momentum, direction)
 
-            hamilton = - self.log_posterior (proposal_theta) + 0.5 * torch.sum(proposal_momentum * proposal_momentum)
+            hamilton = - self.log_posterior (proposal_theta) + 0.5 * torch.sum(proposal_momentum **2)
 
             valid = (hamilton_threshold <= torch.exp(-hamilton))
 
@@ -333,7 +338,7 @@ class MCMC(nn.Module):
 
     def metropolis_hasting(self, sample_number = 10000):
 
-        samples = []
+        theta_samples = []
         accept_count = 0
 
         current_theta = self.initial_theta
@@ -355,17 +360,17 @@ class MCMC(nn.Module):
 
                 accept_count = accept_count + 1
 
-            samples.append(current_theta.clone())
+            theta_samples.append(current_theta.clone())
 
             if (n % 100 == 0):
 
                 print(f"Sample {n}, Acceptance Rate: {accept_count / (n+1):.3f}")
 
-        return samples
+        return theta_samples
     
     def hamiltonian_monte_carlo(self, sample_number = 10000, leapfrog_number = 10):
 
-        samples = []
+        theta_samples = []
         accept_count = 0
 
         current_theta = self.initial_theta 
@@ -389,10 +394,10 @@ class MCMC(nn.Module):
             proposal_momentum = - proposal_momentum
 
             current_potential_energy = - self.log_posterior(current_theta)
-            current_kinetic_energy = 0.5* torch.sum(current_momentum * current_momentum)
+            current_kinetic_energy = 0.5* torch.sum(current_momentum **2)
 
             proposal_potential_energy = - self.log_posterior(proposal_theta)
-            proposal_kinetic_energy = 0.5* torch.sum(proposal_momentum * proposal_momentum)
+            proposal_kinetic_energy = 0.5* torch.sum(proposal_momentum **2)
 
             accept_ratio = torch.exp(current_potential_energy + current_kinetic_energy - proposal_potential_energy - proposal_kinetic_energy)
             accept_ratio = torch.clamp(accept_ratio, max = 1.0)
@@ -404,17 +409,17 @@ class MCMC(nn.Module):
 
                 accept_count = accept_count + 1
 
-            samples.append(current_theta.clone())
+            theta_samples.append(current_theta.clone())
 
             if (n % 100 == 0):
 
                 print(f"Sample {n}, Acceptance Rate: {accept_count / (n+1):.3f}")
 
-        return samples
+        return theta_samples
     
     def no_u_turn_sampler(self, sample_number = 10000, max_depth = 5):
 
-        samples = []
+        theta_samples = []
 
         current_theta = self.initial_theta
 
@@ -424,7 +429,7 @@ class MCMC(nn.Module):
 
             current_momentum = torch.randn_like(current_theta)
 
-            hamilton = - self.log_posterior (current_theta) + 0.5 * torch.sum(current_momentum * current_momentum)
+            hamilton = - self.log_posterior (current_theta) + 0.5 * torch.sum(current_momentum **2)
 
             hamilton_threshold = torch.log(torch.rand(1)) - hamilton
 
@@ -461,27 +466,308 @@ class MCMC(nn.Module):
 
             gradient = torch.cat([grad.detach().view(-1) for grad in self.potential_energy_gradient(current_theta)])
 
-            samples.append(current_theta.clone())
+            theta_samples.append(current_theta.clone())
 
             if (n % 100 == 0):
 
                 print(f"Sample {n}, Acceptance Rate: {current_number / (n+1):.3f}")
 
-        return samples
+        return theta_samples
     
-    def predict(self, input_test, samples):
+    def predict(self, input_test, theta_samples):
 
         predictions = []
 
-        for parameter in samples:
+        for parameter in theta_samples:
 
             self.set_theta(parameter)
 
             with torch.no_grad():
 
-                predictions.append(self.module(input_test).numpy())
+                predictions.append(self.module(input_test).cpu().numpy())
 
         return predictions
-    
-# class one_layer_BNN_VI_MCMC(nn.Module):
 
+class VI_MCMC(nn.Module):
+
+    def __init__(self, vi_module, mcmc_module, input, output, output_noise = 1., proposal_step = 0.1):
+
+        super(VI_MCMC, self).__init__()
+
+        self.mcmc_module = mcmc_module
+        self.input = input
+        self.output = output
+        self.output_noise = output_noise
+        self.proposal_step = proposal_step
+
+        self.theta_mu = torch.cat([param.view(-1) for name, param in vi_module.named_parameters() if 'mu' in name])
+        self.theta_sigma = torch.cat([param.view(-1) for name, param in vi_module.named_parameters() if 'sigma' in name])
+
+    def set_theta(self, theta):
+
+        with torch.no_grad():
+
+            assert theta.numel() == sum(p.numel() for p in self.mcmc_module.parameters())
+
+            theta_offset = 0
+
+            for parameter in self.mcmc_module.parameters():
+
+                theta_number = parameter.numel()                
+
+                parameter.copy_(theta[theta_offset : theta_offset+theta_number].view_as(parameter))
+
+                theta_offset = theta_offset + theta_number
+
+    def log_prior(self, theta):
+
+        return -0.5 * torch.sum((theta / self.theta_sigma) **2)
+
+    def log_likelihood(self):
+        
+        predict_output = self.mcmc_module(self.input)
+
+        n = self.output.numel()
+
+        return -0.5 * torch.sum((self.output - predict_output) ** 2) / self.output_noise ** 2 - 0.5 * n * torch.log(torch.tensor(2 * torch.pi * self.output_noise ** 2))
+    
+    def log_posterior(self, theta):
+        
+        self.set_theta(theta)
+
+        return self.log_prior(theta) + self.log_likelihood()
+
+    def metropolis_hasting(self, sample_number = 10000):
+
+        theta_samples = []
+        accept_count = 0
+
+        current_theta = self.theta_mu
+        current_log_posterior = self.log_posterior(current_theta)
+
+        for n in range(sample_number):
+
+            proposal_theta = current_theta + self.proposal_step * torch.randn_like(current_theta)
+
+            proposal_log_posterior = self.log_posterior(proposal_theta)
+
+            accept_ratio = torch.exp(proposal_log_posterior - current_log_posterior)
+            accept_ratio = torch.clamp(accept_ratio, max = 1.0)
+
+            if torch.rand(1) < accept_ratio:
+
+                current_theta = proposal_theta
+                current_log_posterior = proposal_log_posterior
+
+                accept_count = accept_count + 1
+
+            theta_samples.append(current_theta.clone())
+
+            if (n % 100 == 0):
+
+                print(f"Sample {n}, Acceptance Rate: {accept_count / (n+1):.3f}")
+
+        return theta_samples
+    
+    def predict(self, input_test, theta_samples):
+
+        predictions = []
+
+        for parameter in theta_samples:
+
+            self.set_theta(parameter)
+
+            with torch.no_grad():
+
+                predictions.append(self.mcmc_module(input_test).cpu().numpy())
+
+        return predictions
+
+# class VI(nn.Module):
+
+#     def __init__(self, module, input, output, output_noise = 1., prior_sigma = 1.):
+
+#         super(VI, self).__init__()
+
+#         self.module = module
+#         self.input = input
+#         self.output = output
+#         self.output_noise = output_noise
+#         self.prior_sigma = prior_sigma
+
+#         # self.means = nn.Parameter(torch.cat([torch.randn_like(parameter).detach().clone().view(-1) for parameter in module.parameters()]))
+#         # self.log_std = nn.Parameter(torch.ones_like(self.means) * -3.)
+
+#     def sample_parameter(self):
+
+#         means = nn.Parameter(torch.cat([torch.randn_like(parameter).detach().clone().view(-1) for parameter in self.module.parameters()]))
+#         log_std = nn.Parameter(torch.ones_like(means) * -3.)
+
+#         epsilon = torch.randn_like(log_std)
+
+#         theta_sample = means + torch.exp(log_std) * epsilon
+
+#         return theta_sample
+    
+#     def pack_theta(self, theta):
+
+#         theta_dict = {}
+#         theta_offset = 0
+
+#         for name, parameter in self.module.named_parameters():
+            
+#             numel = parameter.numel()
+#             theta_dict[name] = theta[theta_offset:theta_offset + numel].view_as(parameter)
+#             theta_offset += numel
+
+#         return theta_dict
+
+#     def evidence_lower_bound(self, sample_number = 5):
+
+#         loss = 0
+
+#         for _ in range(sample_number):
+            
+#             theta_sample = self.sample_parameter()
+
+#             # theta_dict = self.pack_theta(theta_sample)
+
+#             predict_output = self.module(self.input)
+#             n = self.output.numel()
+
+#             means = nn.Parameter(torch.cat([torch.randn_like(parameter).detach().clone().view(-1) for parameter in self.module.parameters()]))
+#             log_std = nn.Parameter(torch.ones_like(means) * -3.)
+
+#             log_likelihood = -0.5 * torch.sum((self.output - predict_output) ** 2) / self.output_noise ** 2 - 0.5 * n * torch.log(torch.tensor(2 * torch.pi * self.output_noise ** 2))
+#             log_prior = -0.5 * torch.sum((theta_sample / self.prior_sigma) **2)
+#             log_q = -0.5 * torch.sum(((theta_sample - means) / (torch.exp(log_std))) **2 + 2 * log_std)
+
+#             loss = loss + log_q - log_prior - log_likelihood
+
+#         return loss / sample_number
+
+# class VI_MCMC(nn.Module):
+
+#     def __init__(self, module, input, output, output_noise = 1., prior_sigma = 1., proposal_step = 0.1):
+
+#         super(VI_MCMC, self).__init__()
+
+#         self.module = module
+#         self.input = input
+#         self.output = output
+#         self.output_noise = output_noise
+#         self.prior_sigma = prior_sigma
+#         self.proposal_step = proposal_step
+
+#         # self.means = nn.Parameter(torch.cat([torch.randn_like(parameter).detach().clone().view(-1) for parameter in module.parameters()]))
+#         # self.log_std = nn.Parameter(torch.ones_like(self.means) * -3.)
+
+#     def sample_parameter(self):
+
+#         means = nn.Parameter(torch.cat([torch.randn_like(parameter).detach().clone().view(-1) for parameter in self.module.parameters()]))
+#         log_std = nn.Parameter(torch.ones_like(means) * -3.)
+
+#         epsilon = torch.randn_like(log_std)
+
+#         theta_sample = means + torch.exp(log_std) * epsilon
+
+#         return theta_sample
+    
+#     def set_theta(self, theta):
+
+#         with torch.no_grad():
+
+#             assert theta.numel() == sum(p.numel() for p in self.module.parameters())
+
+#             theta_offset = 0
+
+#             for parameter in self.module.parameters():
+
+#                 theta_number = parameter.numel()                
+
+#                 parameter.copy_(theta[theta_offset : theta_offset+theta_number].view_as(parameter))
+
+#                 theta_offset = theta_offset + theta_number
+
+#     def log_prior(self, theta):
+
+#         return -0.5 * torch.sum((theta / self.prior_sigma) **2)
+
+#     def log_likelihood(self):
+        
+#         predict_output = self.module(self.input)
+
+#         n = self.output.numel()
+
+#         return -0.5 * torch.sum((self.output - predict_output) ** 2) / self.output_noise ** 2 - 0.5 * n * torch.log(torch.tensor(2 * torch.pi * self.output_noise ** 2))
+    
+#     def log_posterior(self, theta):
+
+#         self.set_theta(theta)
+
+#         return self.log_prior(theta) + self.log_likelihood()
+
+#     def evidence_lower_bound(self, sample_number = 5):
+
+#         loss = 0
+
+#         for _ in range(sample_number):
+            
+#             theta_sample = self.sample_parameter()
+
+#             means = nn.Parameter(torch.cat([torch.randn_like(parameter).detach().clone().view(-1) for parameter in self.module.parameters()]))
+#             log_std = nn.Parameter(torch.ones_like(means) * -3.)
+
+#             log_likelihood = self.log_likelihood()
+#             log_prior = self.log_prior(theta_sample)
+#             log_posterior = -0.5 * torch.sum(((theta_sample - means) / (torch.exp(log_std))) **2 + 2 * log_std)
+
+#             loss = loss + log_posterior - log_prior - log_likelihood
+
+#         return loss / sample_number
+    
+#     def metropolis_hasting(self, initial_theta, sample_number = 1000):
+
+#         theta_samples = []
+#         accept_count = 0
+
+#         current_theta = initial_theta
+#         current_log_posterior = self.log_posterior(current_theta)
+
+#         for n in range(sample_number):
+
+#             proposal_theta = current_theta + self.proposal_step * torch.randn_like(current_theta)
+
+#             proposal_log_posterior = self.log_posterior(proposal_theta)
+
+#             accept_ratio = torch.exp(proposal_log_posterior - current_log_posterior)
+#             accept_ratio = torch.clamp(accept_ratio, max = 1.0)
+
+#             if torch.rand(1) < accept_ratio:
+
+#                 current_theta = proposal_theta
+#                 current_log_posterior = proposal_log_posterior
+
+#                 accept_count = accept_count + 1
+
+#             theta_samples.append(current_theta.clone())
+
+#             if (n % 100 == 0):
+
+#                 print(f"Sample {n}, Acceptance Rate: {accept_count / (n+1):.3f}")
+
+#         return theta_samples
+    
+#     def predict(self, input_test, theta_samples):
+
+#         predictions = []
+
+#         for parameter in theta_samples:
+
+#             self.set_theta(parameter)
+
+#             with torch.no_grad():
+
+#                 predictions.append(self.module(input_test).cpu().numpy())
+
+#         return predictions
