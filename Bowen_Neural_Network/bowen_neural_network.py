@@ -3,6 +3,35 @@ import torch
 import torch.nn as nn
 from torch.distributions import Normal
 
+class data_scaler():
+
+    def __init__(self, input, output, predicted_input):
+
+        super(data_scaler, self).__init__()
+
+        self.input = input
+        self.output = output
+        self.predicted_input = predicted_input
+
+    def standardscaler(self):
+
+        self.input_mean = torch.mean(self.input, dim = 0, keepdim=True)
+        self.input_std = torch.std(self.input, dim = 0, keepdim=True)
+        self.output_mean = torch.mean(self.output, dim = 0, keepdim=True)
+        self.output_std = torch.std(self.output, dim = 0, keepdim=True)
+
+        scaler_input = (self.input - self.input_mean) / self.input_std
+        scaler_predicted_input = ( self.predicted_input - self.input_mean) / self.input_std
+        scaler_output = (self.output - self.output_mean) / self.output_std
+
+        return scaler_input, scaler_output, scaler_predicted_input
+
+    def inverse_standardscaler(self, predicted_output):
+
+        predicted_output = predicted_output * self.output_std + self.output_mean
+
+        return predicted_output
+
 class one_layer_ANN(nn.Module):
     
     def __init__(self, input_dimension, hidden_dimension, output_dimension, nonlinear_layer_name = "sigmoid"):
@@ -20,7 +49,6 @@ class one_layer_ANN(nn.Module):
         }   
 
     def forward(self, input):
-
 
         out = self.hidden(input)
         out = self.all_nonlinear_layer[self.nonlinear_layer_name](out)
@@ -490,7 +518,7 @@ class MCMC(nn.Module):
 
 class VI_MCMC(nn.Module):
 
-    def __init__(self, vi_module, mcmc_module, input, output, output_noise = 1., proposal_step = 0.1):
+    def __init__(self, vi_module, mcmc_module, input, output, output_noise = 1.):
 
         super(VI_MCMC, self).__init__()
 
@@ -498,10 +526,11 @@ class VI_MCMC(nn.Module):
         self.input = input
         self.output = output
         self.output_noise = output_noise
-        self.proposal_step = proposal_step
 
         self.theta_mu = torch.cat([param.view(-1) for name, param in vi_module.named_parameters() if 'mu' in name])
         self.theta_sigma = torch.cat([param.view(-1) for name, param in vi_module.named_parameters() if 'sigma' in name])
+
+        self.proposal_step = abs(0.1 * self.theta_sigma.mean())
 
     def set_theta(self, theta):
 
