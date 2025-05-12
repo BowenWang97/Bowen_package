@@ -9,7 +9,7 @@ class kernel_function():
 
         super(kernel_function, self).__init__()
     
-        self.data = data        
+        self.data = data
         self.kernel_name = kernel_name
 
         self.data_dimension = self.data.size()
@@ -320,94 +320,96 @@ class sampling():
     
 class GP_nn(nn.Module):
 
-    def __init__(self, kernel_self,  data_noise = None, acquisition_function_name = "expected_improvement", xi = torch.tensor(1.), kappa = torch.tensor(2.)):
+    def __init__(self, data, data_noise = torch.tensor([1e-4]), kernel_name = "matern_nu_5", acquisition_function_name = "expected_improvement", xi = torch.tensor(1.), lengthscale = None, variance = None):
 
-        super(gaussian_progress_nn, self).__init__()
+        super(GP_nn, self).__init__()
 
-        self.all_kernel_function = kernel_self.all_kernel_function
-        self.data_number = kernel_self.data_number
-        self.kernel_data_matrix = kernel_self.kernel_data_matrix
-        self.kernel_sample_matrix = kernel_self.kernel_sample_matrix
-        self.input = kernel_self.input
-        self.input_dimension = kernel_self.input_dimension
-        self.kernel_name = kernel_self.kernel_name
-        self.length_scale = kernel_self.length_scale
-        self.output = kernel_self.output
-
+        self.data = data
+        self.data_noise = data_noise
+        self.kernel_name = kernel_name
         self.acquisition_function_name = acquisition_function_name
+        self.xi = xi
 
-        if (data_noise == None):
+        self.data_dimension = self.data.size()
+        self.data_number = self.data_dimension[0]
+        self.input_dimension = self.data_dimension[1] - 1
 
-            self.data_sigma = torch.zeros(self.data_number)
+        self.input = data[:, :-1]
+        self.output = data[:, self.input_dimension]
+        
+        if (lengthscale == None):
+
+            self.lengthscale = torch.nn.Parameter(torch.ones(1))
 
         else:
 
-            self.data_sigma = data_noise
+            self.lengthscale = lengthscale
 
-        self.xi = xi
-        self.kappa = kappa
+        if (variance == None):
+            
+            self.variance = torch.nn.Parameter(torch.ones(1))
+
+        else:
+
+            self.variance = variance
+
+        self.all_kernel_function = {
+            "matern_nu_5" : self.kf_m5
+        }
 
         self.all_acquisition_function = {
-            "expected_improvement" : self.expected_improvement,
-            "probability_of_improvement" : self.probability_of_improvement,
-            "upper_confidence_bound" : self.upper_confidence_bound
-        }       
+            "expected_improvement" : self.ac_ei
+        }    
 
-    def forward(self, sample):
+    def kf_m5(self, x1, x2):
 
-        mu = torch.zeros(sample.shape[0])
-        sigma = torch.zeros(sample.shape[0])
+        relenvant_distance = torch.cdist(x1 / self.lengthscale, x2 / self.lengthscale, p=2)
 
-        for n in range(sample.shape[0]):
+        k = self.variance * (1 + torch.sqrt(torch.tensor(5.0)) * relenvant_distance + torch.tensor(5.0/3.0) * relenvant_distance**2) * torch.exp(- torch.sqrt(torch.tensor(5.0)) * relenvant_distance)
 
-            kernel_data_sample_matrix = kernel_function.kernel_matrix(self, sample[n])
-            
-            mu[n] = torch.linalg.multi_dot((kernel_data_sample_matrix, torch.linalg.inv(self.kernel_data_matrix + self.data_sigma * torch.eye(self.data_number)), self.output))
-            sigma[n] = self.kernel_sample_matrix - torch.linalg.multi_dot((kernel_data_sample_matrix, torch.linalg.inv(self.kernel_data_matrix + self.data_sigma * torch.eye(self.data_number)), torch.unsqueeze(kernel_data_sample_matrix, 1)))
-
-        sigma = torch.clamp(self.sigma, min = 0.)
-
-        return mu, sigma
-    
-    def standard_normal_pdf(self, x):
-
-        pdf = torch.exp( - x * x / 2) / torch.sqrt(torch.tensor(2.) * torch.pi)
-
-        return pdf
-    
-    def standard_normal_cdf(self, x):
-
-        cdf = (1 + torch.erf(x / torch.sqrt(torch.tensor(2.)))) / 2
-
-        return cdf
+        return k
     
     def standardized_improvement(self, mu, sigma):
 
-        z = (mu - torch.max(self.output) - self.xi) / sigma
+        z = (mu - torch.max(self.output) - self.xi) / (sigma + 1e-9)
 
         return z
+    
+    def norm_pdf(self, x):
 
-    def expected_improvement(self, mu, sigma):
+        pdf = (1 / torch.sqrt(torch.tensor(2.) * torch.pi)) * torch.exp(- 0.5 * x **2)
+
+        return pdf
+    
+    def norm_cdf(self, x):
+
+        cdf = 0.5 * (1 + torch.erf(x / torch.sqrt(torch.tensor(2.))))
+
+        return cdf
+    
+    def ac_ei(self, mu, sigma):
 
         z = self.standardized_improvement(mu, sigma)
 
-        ei = (mu - torch.max(self.output) - self.xi) * torch.tensor(sci.stats.norm.cdf(z)) + sigma * torch.tensor(sci.stats.norm.pdf(z))
+        ei = (mu - torch.max(self.output) - self.xi) * self.norm_cdf(z) + sigma * self.norm_pdf(z)
 
         return ei
-    
-    def probability_of_improvement(self, mu, sigma):
 
-        z = self.standardized_improvement(mu, sigma)
+    def forward(self, sample):
 
-        pi = torch.tensor(sci.stats.norm.cdf(z))
+        mu = torch.zeros(sample.size()[0])
+        sigma = torch.zeros(sample.size()[0])
 
-        return pi
-    
-    def upper_confidence_bound(self, mu, sigma):
+        kernel_sample_data_matrix = self.all_kernel_function[self.kernel_name](sample, self.input)
+        kernel_data_matrix = self.all_kernel_function[self.kernel_name](self.input, self.input)
+        kernel_sample_matrix = self.all_kernel_function[self.kernel_name](sample, sample)
+        kernel_data_sample_matrix = self.all_kernel_function[self.kernel_name](self.input, sample)
 
-        ucb = mu + self.kappa * sigma
+        K_inv = torch.linalg.inv(kernel_data_matrix + torch.diag(self.data_noise))
+        mu = kernel_sample_data_matrix @ K_inv @ self.output
+        sigma = torch.diagonal(kernel_sample_matrix - kernel_sample_data_matrix @ K_inv @ kernel_data_sample_matrix, 0)
 
-        return ucb
+        return mu, sigma
     
     def acquisition_function(self, mu, sigma):
 
@@ -415,68 +417,136 @@ class GP_nn(nn.Module):
 
         return af
 
-class gradient_descent_sampling():
+class random_embedding(nn.Module):
 
-    def __init__(self, kernel_self, input_start, input_stop):
-         
-        super(gradient_descent_sampling, self).__init__()
+    def __init__(self, random_embedding_matrix, input_dimension, low_dimension, input_start, input_stop):
 
-        self.kernel_self = kernel_self
-        self.input_dimension = kernel_self.input_dimension
-        self.input_start = input_start
-        self.input_stop = input_stop
+        super(random_embedding, self).__init__()
 
-    def next_sample(self, gf_epoch_time):
+        self.random_embedding_matrix = random_embedding_matrix
 
-        gp = gaussian_progress_nn(self.kernel_self)
+        self.feasible_region_matrix = torch.cat([self.random_embedding_matrix, -self.random_embedding_matrix], dim = 0)
+        self.high_dimension_boundary = torch.cat([input_stop, -input_start], dim = 0)
 
-        next_sample = self.input_start + (self.input_stop - self.input_start) * torch.rand_like()
+    def calculate_barrier(self, low_dimension_input, barrier_mu = 1.):
 
-        gp_optimizer = torch.optim.Adam(next_sample, lr=0.01)
+        if torch.any(self.feasible_region_matrix @ torch.squeeze(low_dimension_input, 0).T >= self.high_dimension_boundary):
 
-        for gf_ep in range(gf_epoch_time):
+            return None
+        
+        barrier = - torch.sum(torch.log(self.high_dimension_boundary - self.feasible_region_matrix @ low_dimension_input + 1e-8))
 
-            prediction_mu, prediction_sigma = gp(next_sample)
+        return barrier * barrier_mu
 
-            loss = - gp.acquisition_function(prediction_mu, prediction_sigma)
+    def map_to_low_dimension(self, high_dimension_input, input_dimension, low_dimension_bias = None):
+
+        if (low_dimension_bias == None):
+
+            low_dimension_bias = torch.zeros(input_dimension).unsqueeze(0)
+
+        low_dimension_input = torch.inverse(self.random_embedding_matrix.T @ self.random_embedding_matrix) @ self.random_embedding_matrix.T @ torch.squeeze(high_dimension_input - low_dimension_bias)
+
+        # low_dimension_input = torch.linalg.lstsq(self.random_embedding_matrix, (torch.squeeze(high_dimension_input) - low_dimension_bias)).solution
+
+        return low_dimension_input.unsqueeze(0)
+
+    def map_to_high_dimension(self, low_dimension_input, input_dimension, low_dimension_bias = None):
+
+        if (low_dimension_bias == None):
+
+            low_dimension_bias = torch.zeros(input_dimension)
+
+        input = (self.random_embedding_matrix @ low_dimension_input.T).T + low_dimension_bias
+
+        return input
+    
+    def gp_train(self, gp_module, low_dimension_data, re_epoch_time, low_dimension):
+
+        gp_optimizer = torch.optim.Adam(gp_module.parameters(), lr=0.01)
+
+        low_dimension_input = low_dimension_data[:, :-1]
+        output = low_dimension_data[:, low_dimension]
+
+        for _ in range(re_epoch_time):
+
+            prediction_mu, _ = gp_module(low_dimension_input)
+
+            loss = ((prediction_mu - output) **2).mean()
 
             gp_optimizer.zero_grad()
             loss.backward()
             gp_optimizer.step()
 
+class gradient_descent_sampling(nn.Module):
+
+    def __init__(self, gp_module, data, input_start, input_stop):
+         
+        super(gradient_descent_sampling, self).__init__()
+
+        self.gp = gp_module
+        self.data = data
+        self.input_start = input_start
+        self.input_stop = input_stop
+
+        self.data_dimension = self.data.size()
+        self.input_dimension = self.data_dimension[1] - 1
+
+    def next_sample(self, ns_epoch_time, barrier_mu = 1.):
+
+        next_sample = self.input_start + (self.input_stop - self.input_start) * torch.rand(self.input_dimension)
+        next_sample = next_sample.unsqueeze(0)
+
+        next_sample.requires_grad_()
+
+        ac_optimizer = torch.optim.Adam([next_sample], lr=0.1)
+
+        for _ in range(ns_epoch_time):
+
+            prediction_mu, prediction_sigma = self.gp(next_sample)
+
+            barrier = - torch.sum(torch.log(torch.min((next_sample - self.input_start) / (self.input_stop - self.input_start), (self.input_stop - next_sample) / (self.input_stop - self.input_start)) + 1e-8))
+
+            loss = self.gp.acquisition_function(prediction_mu, prediction_sigma) * (barrier * barrier_mu - 1)
+
+            ac_optimizer.zero_grad()
+            loss.backward()
+            ac_optimizer.step()
+
             with torch.no_grad():
 
-                next_sample.clamp_(self.input_stop, self.input_start)
+                next_sample.clamp_(self.input_start, self.input_stop)
 
         return next_sample.detach()
     
-class random_embedding():
+    def next_sample_with_re(self, re_module, ns_epoch_time, barrier_mu = 1.):
 
-    def __init__(self, kernel_self, low_dimension):
+        next_sample = self.input_start + (self.input_stop - self.input_start) * torch.rand(self.input_dimension)
+        next_sample = next_sample.unsqueeze(0)
 
-        super(random_embedding, self).__init__()
+        next_sample.requires_grad_()
 
-        self.data_number = kernel_self.data_number
-        self.input_dimension = kernel_self.input_dimension
-        self.input = kernel_self.input
-        self.low_dimension = low_dimension
+        ac_optimizer = torch.optim.Adam([next_sample], lr=0.1)
 
-    def map_to_high_dimension(self, random_embedding_matrix, low_dim_input, low_dim_bias = None):
+        for _ in range(ns_epoch_time):
 
-        if (low_dim_bias == None):
+            prediction_mu, prediction_sigma = self.gp(next_sample)
 
-            low_dim_bias = torch.zeros(self.input_dimension)
+            barrier = re_module.calculate_barrier(low_dimension_input = next_sample, barrier_mu = barrier_mu)
 
-        input = random_embedding_matrix @ low_dim_input + low_dim_bias
+            if (barrier == None):
 
-        return input
-    
-    def rande(self, re_epoch_time):
+                loss = - self.gp.acquisition_function(prediction_mu, prediction_sigma) + torch.tensor(1e10)
 
-        random_embedding_matrix = torch.randn((self.data_number, self.low_dimension)) / self.low_dimension
+            else:
 
-        for re_ep in range(re_epoch_time):
+                loss = - self.gp.acquisition_function(prediction_mu, prediction_sigma) + barrier
 
-            gp = gaussian_progress(self.kernel_self, self.input)
+            ac_optimizer.zero_grad()
+            loss.backward()
+            ac_optimizer.step()
 
-            prediction_mu, prediction_sigma = gp.fit_function()
+            with torch.no_grad():
+
+                next_sample.clamp_(self.input_start, self.input_stop)
+
+        return next_sample.detach()
