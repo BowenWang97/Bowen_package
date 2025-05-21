@@ -26,15 +26,34 @@ class data_scaler():
 
         return scaler_input, scaler_output, scaler_predicted_input
 
-    def inverse_standardscaler(self, predicted_output):
+    def inverse_standardscaler(self, scaler_predicted_output):
 
-        predicted_output = predicted_output * self.output_std + self.output_mean
+        predicted_output = scaler_predicted_output * self.output_std + self.output_mean
+
+        return predicted_output
+    
+    def minmaxscaler(self, input_min, input_max):
+
+        self.input_min = input_min
+        self.input_max = input_max
+        self.output_min = torch.min(self.output)
+        self.output_max = torch.max(self.output)
+
+        scaler_input = (self.input - self.input_min) / (self.input_max - self.input_min)
+        scaler_predicted_input = (self.predicted_input - self.input_min) / (self.input_max - self.input_min)
+        scaler_output = (self.output - self.output_min) / (self.output_max - self.output_min)
+
+        return scaler_input, scaler_output, scaler_predicted_input
+    
+    def inverse_minmaxscaler(self, scaler_predicted_output):
+
+        predicted_output = scaler_predicted_output * (self.output_max - self.output_min) + self.output_min
 
         return predicted_output
 
 class one_layer_ANN(nn.Module):
     
-    def __init__(self, input_dimension, hidden_dimension, output_dimension, nonlinear_layer_name = "sigmoid"):
+    def __init__(self, input_dimension, hidden_dimension, output_dimension, nonlinear_layer_name = "relu"):
 
         super(one_layer_ANN, self).__init__()
 
@@ -58,7 +77,7 @@ class one_layer_ANN(nn.Module):
     
 class two_layer_ANN(nn.Module):
 
-    def __init__(self, input_dimension, hidden_dimension, output_dimension, nonlinear_layer_name = ["relu", "sigmoid"]):
+    def __init__(self, input_dimension, hidden_dimension, output_dimension, nonlinear_layer_name = ["relu", "relu"]):
 
         super(two_layer_ANN, self).__init__()
 
@@ -79,6 +98,36 @@ class two_layer_ANN(nn.Module):
         out = self.all_nonlinear_layer[self.nonlinear_layer_name[0]](out)
         out = self.hidden_2(out)
         out = self.all_nonlinear_layer[self.nonlinear_layer_name[1]](out)
+        output = self.output(out)
+
+        return output
+    
+class three_layer_ANN(nn.Module):
+
+    def __init__(self, input_dimension, hidden_dimension, output_dimension, nonlinear_layer_name = ["relu", "relu", "relu"]):
+
+        super(three_layer_ANN, self).__init__()
+
+        self.hidden_1 = nn.Linear(input_dimension, hidden_dimension[0])
+        self.hidden_2 = nn.Linear(hidden_dimension[0], hidden_dimension[1])
+        self.hidden_3 = nn.Linear(hidden_dimension[1], hidden_dimension[2])
+        self.output = nn.Linear(hidden_dimension[2], output_dimension)
+
+        self.nonlinear_layer_name = nonlinear_layer_name
+
+        self.all_nonlinear_layer = {
+            "sigmoid": nn.Sigmoid(),
+            "relu": nn.ReLU()
+        }
+
+    def forward(self, input):
+
+        out = self.hidden_1(input)
+        out = self.all_nonlinear_layer[self.nonlinear_layer_name[0]](out)
+        out = self.hidden_2(out)
+        out = self.all_nonlinear_layer[self.nonlinear_layer_name[1]](out)
+        out = self.hidden_3(out)
+        out = self.all_nonlinear_layer[self.nonlinear_layer_name[2]](out)
         output = self.output(out)
 
         return output
@@ -311,12 +360,12 @@ class MCMC(nn.Module):
     
     def leapfrog(self, proposal_theta, proposal_momentum, direction):
 
-        gradient = torch.cat([grad.detach().view(-1) for grad in self.potential_energy_gradient(proposal_theta)])
+        gradient = self.potential_energy_gradient(proposal_theta)
         proposal_momentum = proposal_momentum + 0.5 * direction * self.proposal_step * gradient
 
-        proposal_theta = proposal_theta + self.proposal_step * proposal_momentum
+        proposal_theta = proposal_theta + direction * self.proposal_step * proposal_momentum
 
-        gradient = torch.cat([grad.detach().view(-1) for grad in self.potential_energy_gradient(proposal_theta)])
+        gradient = self.potential_energy_gradient(proposal_theta)
         proposal_momentum = proposal_momentum + 0.5 * direction * self.proposal_step * gradient
 
         return proposal_theta, proposal_momentum, gradient
@@ -329,7 +378,7 @@ class MCMC(nn.Module):
 
             hamilton = - self.log_posterior (proposal_theta) + 0.5 * torch.sum(proposal_momentum **2)
 
-            valid = (hamilton_threshold <= torch.exp(-hamilton))
+            valid = (hamilton_threshold <= -hamilton)
 
             return proposal_theta, proposal_momentum, gradient, proposal_theta, proposal_momentum, gradient, proposal_theta, valid, 1
 
@@ -390,7 +439,7 @@ class MCMC(nn.Module):
 
             theta_samples.append(current_theta.clone())
 
-            if (n % 100 == 0):
+            if (n % 1000 == 0):
 
                 print(f"Sample {n}, Acceptance Rate: {accept_count / (n+1):.3f}")
 
@@ -408,18 +457,18 @@ class MCMC(nn.Module):
             proposal_theta = current_theta.clone()
             current_momentum = torch.randn_like(current_theta)
 
-            gradient = torch.cat([grad.detach().view(-1) for grad in self.potential_energy_gradient(current_theta)])
-            proposal_momentum = current_momentum - 0.5 * self.proposal_step * gradient
+            gradient = self.potential_energy_gradient(current_theta)
+            proposal_momentum = current_momentum + 0.5 * self.proposal_step * gradient
 
             for _ in range(leapfrog_number):
 
                 proposal_theta = proposal_theta + self.proposal_step * proposal_momentum
 
-                gradient = torch.cat([grad.detach().view(-1) for grad in self.potential_energy_gradient(proposal_theta)])
-                proposal_momentum = proposal_momentum - self.proposal_step * gradient
+                gradient = self.potential_energy_gradient(proposal_theta)
+                proposal_momentum = proposal_momentum + self.proposal_step * gradient
 
-            proposal_momentum = proposal_momentum -  0.5 * self.proposal_step * gradient
-            proposal_momentum = - proposal_momentum
+            proposal_momentum = proposal_momentum +  0.5 * self.proposal_step * gradient
+            # proposal_momentum = - proposal_momentum
 
             current_potential_energy = - self.log_posterior(current_theta)
             current_kinetic_energy = 0.5* torch.sum(current_momentum **2)
@@ -445,13 +494,13 @@ class MCMC(nn.Module):
 
         return theta_samples
     
-    def no_u_turn_sampler(self, sample_number = 10000, max_depth = 5):
+    def no_u_turn_sampler(self, sample_number = 10000, max_depth = 10):
 
         theta_samples = []
 
         current_theta = self.initial_theta
 
-        gradient = torch.cat([grad.detach().view(-1) for grad in self.potential_energy_gradient(current_theta)])
+        gradient = self.potential_energy_gradient(current_theta)
 
         for n in range(sample_number):
 
@@ -492,7 +541,7 @@ class MCMC(nn.Module):
                 depth = depth +1
                 current_valid = (valid and not (torch.dot((theta_plus - theta_minus), momentum_minus) < 0 or torch.dot((theta_plus - theta_minus), momentum_plus) < 0))
 
-            gradient = torch.cat([grad.detach().view(-1) for grad in self.potential_energy_gradient(current_theta)])
+            gradient = self.potential_energy_gradient(current_theta)
 
             theta_samples.append(current_theta.clone())
 
@@ -512,9 +561,9 @@ class MCMC(nn.Module):
 
             with torch.no_grad():
 
-                predictions.append(self.module(input_test).cpu().numpy())
-
-        return predictions
+                predictions.append(self.module(input_test))
+        
+        return torch.stack(predictions)
 
 class VI_MCMC(nn.Module):
 
@@ -608,7 +657,7 @@ class VI_MCMC(nn.Module):
 
             with torch.no_grad():
 
-                predictions.append(self.mcmc_module(input_test).cpu().numpy())
+                predictions.append(self.mcmc_module(input_test))
 
         return predictions
 
