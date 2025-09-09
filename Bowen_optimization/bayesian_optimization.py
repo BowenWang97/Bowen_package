@@ -91,11 +91,19 @@ class data_scaler():
 
         self.input_min = input_min
         self.input_max = input_max
-        self.output_mean = torch.mean(self.output, dim = 0, keepdim=True)
-        self.output_std = torch.std(self.output, dim = 0, keepdim=True)
+        self.output_mean = torch.mean(self.output, dim = 0, keepdim=True)        
 
         scaler_input = (self.input - self.input_min) / (self.input_max - self.input_min)
-        scaler_output = (self.output - self.output_mean) / self.output_std
+
+        if (self.input.size()[0] == 1):
+
+            scaler_output = torch.ones(1)
+
+        else:
+
+            self.output_std = torch.std(self.output, dim = 0, keepdim=True)
+
+            scaler_output = (self.output - self.output_mean) / self.output_std
 
         if (self.predicted_input is not False):
 
@@ -107,11 +115,19 @@ class data_scaler():
 
             return scaler_input, scaler_output
     
-    def inverse_minmax_input_standard_output_scaler(self, scaler_predicted_output):
+    def inverse_minmax_input_standard_output_scaler(self, scaler_predicted_input = False, scaler_predicted_output = False):
 
-        predicted_output = scaler_predicted_output * self.output_std + self.output_mean
+        if (scaler_predicted_input is False):
 
-        return predicted_output
+            predicted_output = scaler_predicted_output * self.output_std + self.output_mean
+
+            return predicted_output
+        
+        elif(scaler_predicted_output is False):
+
+            predicted_input = scaler_predicted_input * (self.input_max - self.input_min) + self.input_min
+
+            return predicted_input
     
     def inverse_minmax_input_standard_output_scaler_theta(self, scaler_weight, scaler_bias):
 
@@ -755,9 +771,9 @@ class gradient_descent_sampling():
             loss.backward(retain_graph = True)
             ac_optimizer.step()
 
-            # if (ep + 1) % 100 == 0:
+            if (ep + 1) % 100 == 0:
 
-            #     print(f'NS_Epoch [{ep+1}/{ns_epoch_time}], Loss: {loss.item():.4f}')
+                print(f'NS_Epoch [{ep+1}/{ns_epoch_time}], Loss: {loss.item():.4f}')
 
             if (loss_0 - loss <= 1e-6):
 
