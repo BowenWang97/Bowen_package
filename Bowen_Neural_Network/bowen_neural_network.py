@@ -5,7 +5,7 @@ from torch.distributions import Normal
 
 class data_scaler():
 
-    def __init__(self, input, output, predicted_input):
+    def __init__(self, input, output, predicted_input = False):
 
         super(data_scaler, self).__init__()
 
@@ -21,10 +21,17 @@ class data_scaler():
         self.output_std = torch.std(self.output, dim = 0, keepdim=True)
 
         scaler_input = (self.input - self.input_mean) / self.input_std
-        scaler_predicted_input = ( self.predicted_input - self.input_mean) / self.input_std
         scaler_output = (self.output - self.output_mean) / self.output_std
 
-        return scaler_input, scaler_output, scaler_predicted_input
+        if (self.predicted_input is not False):
+
+            scaler_predicted_input = ( self.predicted_input - self.input_mean) / self.input_std        
+
+            return scaler_input, scaler_output, scaler_predicted_input
+        
+        else:
+
+            return scaler_input, scaler_output
 
     def inverse_standardscaler(self, scaler_predicted_output):
 
@@ -40,16 +47,134 @@ class data_scaler():
         self.output_max = torch.max(self.output)
 
         scaler_input = (self.input - self.input_min) / (self.input_max - self.input_min)
-        scaler_predicted_input = (self.predicted_input - self.input_min) / (self.input_max - self.input_min)
         scaler_output = (self.output - self.output_min) / (self.output_max - self.output_min)
 
-        return scaler_input, scaler_output, scaler_predicted_input
+        if (self.predicted_input is not False):
+
+            scaler_predicted_input = (self.predicted_input - self.input_min) / (self.input_max - self.input_min)
+
+            return scaler_input, scaler_output, scaler_predicted_input
+        
+        else:
+
+            return scaler_input, scaler_output
     
     def inverse_minmaxscaler(self, scaler_predicted_output):
 
         predicted_output = scaler_predicted_output * (self.output_max - self.output_min) + self.output_min
 
         return predicted_output
+    
+    def inverse_minmaxscaler_theta(self, scaler_weight, scaler_bias):
+
+        weight = scaler_weight * (self.output_max - self.output_min) / (self.input_max - self.input_min)
+        bias = scaler_bias * (self.output_max - self.output_min) + self.output_min - weight * self.input_min
+
+        return weight, bias
+    
+    def minmax_input_standard_output_scaler(self, input_min, input_max):
+
+        self.input_min = input_min
+        self.input_max = input_max
+        self.output_mean = torch.mean(self.output, dim = 0, keepdim=True)
+        self.output_std = torch.std(self.output, dim = 0, keepdim=True)
+
+        scaler_input = (self.input - self.input_min) / (self.input_max - self.input_min)
+        scaler_output = (self.output - self.output_mean) / self.output_std
+
+        if (self.predicted_input is not False):
+
+            scaler_predicted_input = (self.predicted_input - self.input_min) / (self.input_max - self.input_min)        
+
+            return scaler_input, scaler_output, scaler_predicted_input
+        
+        else:
+
+            return scaler_input, scaler_output
+    
+    def inverse_minmax_input_standard_output_scaler(self, scaler_predicted_output):
+
+        predicted_output = scaler_predicted_output * self.output_std + self.output_mean
+
+        return predicted_output
+    
+    def inverse_minmax_input_standard_output_scaler_theta(self, scaler_weight, scaler_bias):
+
+        weight = scaler_weight * self.output_std / (self.input_max - self.input_min)
+        bias = scaler_bias * self.output_std + self.output_mean - weight * self.input_min
+
+        return weight, bias
+
+class linear_regression(nn.Module):
+
+    def __init__(self):
+
+        super(linear_regression, self).__init__()
+
+        self.linear = nn.Linear(1, 1)
+        
+    def forward(self, input):
+
+        return self.linear(input)
+    
+class linear_regression_with_one_layer_ANN(nn.Module):
+
+    def __init__(self, input_dimension, hidden_dimension, output_dimension, nonlinear_layer_name = "relu"):
+
+        super(linear_regression_with_one_layer_ANN, self).__init__()
+
+        self.linear = nn.Linear(1, 1)
+
+        self.hidden = nn.Linear(input_dimension, hidden_dimension)
+        self.output = nn.Linear(hidden_dimension, output_dimension)
+
+        self.nonlinear_layer_name = nonlinear_layer_name
+
+        self.all_nonlinear_layer = {
+            "sigmoid": nn.Sigmoid(),
+            "relu": nn.ReLU()
+        }
+
+    def forward(self, input):
+
+        out = self.hidden(input[:, 1:])
+        out = self.all_nonlinear_layer[self.nonlinear_layer_name](out)
+        out = self.output(out)
+
+        output = out + self.linear(input[:, 0].unsqueeze(-1))
+
+        return output
+    
+class linear_regression_with_two_layer_ANN(nn.Module):
+
+    def __init__(self, input_dimension, hidden_dimension, output_dimension, nonlinear_layer_name = ["relu", "relu"]):
+
+        super(linear_regression_with_two_layer_ANN, self).__init__()
+
+        self.linear = nn.Linear(1, 1)
+
+        self.hidden_1 = nn.Linear(input_dimension, hidden_dimension[0])
+        self.hidden_2 = nn.Linear(hidden_dimension[0], hidden_dimension[1])
+        self.output = nn.Linear(hidden_dimension[1], output_dimension)
+
+        self.nonlinear_layer_name = nonlinear_layer_name
+
+        self.all_nonlinear_layer = {
+            "sigmoid": nn.Sigmoid(),
+            "relu": nn.ReLU()
+        }
+
+    def forward(self, input):
+
+        out = self.hidden_1(input[:, 1:])
+        out = self.all_nonlinear_layer[self.nonlinear_layer_name[0]](out)
+        out = self.hidden_2(out)
+        out = self.all_nonlinear_layer[self.nonlinear_layer_name[1]](out)
+        out = self.output(out)
+
+        output = out + self.linear(input[:, 0].unsqueeze(-1))
+
+        return output
 
 class one_layer_ANN(nn.Module):
     
