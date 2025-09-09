@@ -245,7 +245,7 @@ def yield_calculate_3d_3(parameter_1,parameter_1_delta,parameter_1_variance,para
 
                     for j2 in range(2*number_dif_2+1):
 
-                        for j3 in range(2*number_dif_3+1):
+                        for j3 in range(2*number_dif_3):
 
                             gaussian = math.exp(-(parameter_1[i1+j1]-yield_parameter_1[i1])*(parameter_1[i1+j1]-yield_parameter_1[i1])/(2*parameter_1_variance*parameter_1_variance)-(parameter_2[i2+j2]-yield_parameter_2[i2])*(parameter_2[i2+j2]-yield_parameter_2[i2])/(2*parameter_2_variance*parameter_2_variance)-(parameter_3[i3+j3]-yield_parameter_3[i3])*(parameter_3[i3+j3]-yield_parameter_3[i3])/(2*parameter_3_variance*parameter_3_variance))
 
