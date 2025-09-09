@@ -636,6 +636,8 @@ def fit_2d(data_point,point_delta,order=3):
     first_tangent_vector = tangent_vector[0]
     last_tangent_vector = tangent_vector[1]
 
+    print(tangent_vector)
+
     control_point = control_point_calculate_2d(data_point,first_tangent_vector,last_tangent_vector,knot_vector,order)
 
     vector_number = int(max(knot_vector)/vector_delta)
