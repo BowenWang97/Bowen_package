@@ -47,7 +47,14 @@ class data_scaler():
         self.output_max = torch.max(self.output)
 
         scaler_input = (self.input - self.input_min) / (self.input_max - self.input_min)
-        scaler_output = (self.output - self.output_min) / (self.output_max - self.output_min)
+
+        if (self.output_max == self.output_min):
+
+            scaler_output = torch.ones(self.input.size()[0])
+
+        else:
+
+            scaler_output = (self.output - self.output_min) / (self.output_max - self.output_min)
 
         if (self.predicted_input is not False):
 
@@ -59,11 +66,19 @@ class data_scaler():
 
             return scaler_input, scaler_output
     
-    def inverse_minmaxscaler(self, scaler_predicted_output):
+    def inverse_minmaxscaler(self, scaler_predicted_input = False, scaler_predicted_output = False):
 
-        predicted_output = scaler_predicted_output * (self.output_max - self.output_min) + self.output_min
+        if (scaler_predicted_input is False):
 
-        return predicted_output
+            predicted_output = scaler_predicted_output * (self.output_max - self.output_min) + self.output_min
+
+            return predicted_output
+        
+        elif(scaler_predicted_output is False):
+
+            predicted_input = scaler_predicted_input * (self.input_max - self.input_min) + self.input_min
+
+            return predicted_input
     
     def inverse_minmaxscaler_theta(self, scaler_weight, scaler_bias):
 
@@ -719,7 +734,7 @@ class gradient_descent_sampling():
 
         return laplacian
 
-    def next_sample(self, ns_epoch_time = 100, barrier_mu = 1., learning_rate = 0.01):
+    def next_sample(self, ns_epoch_time = 100, barrier_mu = 1., learning_rate = 0.001):
 
         next_sample = self.input_start + (self.input_stop - self.input_start) * torch.rand(self.input_dimension)
         next_sample = next_sample.clone().detach().requires_grad_()
