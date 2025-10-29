@@ -3,20 +3,6 @@ import torch
 import torch.nn as nn
 import scipy as sci
 
-def latin_hypercube_sampling(sample_min, sample_max, sample_number = 5):
-
-    sample_dimension = sample_min.size(0)
-
-    sample = torch.empty((sample_number, sample_dimension))
-
-    for d in range(sample_dimension):
-
-        permutation = torch.randperm(sample_number).float()
-
-        sample[:, d] = (permutation + 0.5) /sample_number * (sample_max[d] - sample_min[d]) + sample_min[d]
-
-    return sample
-
 class data_scaler():
 
     def __init__(self, input, output, predicted_input = False):
@@ -575,7 +561,7 @@ class GP_nn(nn.Module):
 
         K_inv = torch.linalg.inv(kernel_data_matrix + noise_diag)
         mu = kernel_sample_data_matrix @ K_inv @ self.output
-        sigma = kernel_sample_matrix - kernel_sample_data_matrix @ K_inv @ kernel_data_sample_matrix
+        sigma = torch.diagonal(kernel_sample_matrix - kernel_sample_data_matrix @ K_inv @ kernel_data_sample_matrix, 0)
 
         return mu, sigma
     
@@ -764,7 +750,7 @@ class gradient_descent_sampling():
 
         return laplacian
 
-    def next_sample(self, ns_epoch_time = 100, barrier_mu = 1., learning_rate = 0.001):
+    def next_sample(self, ns_epoch_time = 100, barrier_mu = 0., learning_rate = 0.001):
 
         next_sample = self.input_start + (self.input_stop - self.input_start) * torch.rand(self.input_dimension)
         next_sample = next_sample.clone().detach().requires_grad_()
@@ -776,8 +762,6 @@ class gradient_descent_sampling():
         for ep in range(ns_epoch_time):
 
             prediction_mu, prediction_sigma = self.gp(next_sample)
-
-            prediction_sigma = torch.diagonal(prediction_sigma, 0)
 
             barrier = self.calculate_barrier(input = next_sample)
 
@@ -839,29 +823,3 @@ class gradient_descent_sampling():
             next_sample.copy_(next_sample.clamp(self.input_start, self.input_stop))
 
         return next_sample.detach()
-    
-class residual_analysis():
-
-    def __init__(self, gp_module, predicted_input, error):
-
-        super(residual_analysis, self).__init__()
-
-        self.gp = gp_module
-        self.predicted_input = predicted_input
-        self.error = error
-
-        self.input_dimension = predicted_input.size()[1]
-
-    def MC_sampling(self, sample_number):
-
-        prediction_error_mu, prediction_error_sigma = self.gp(self.predicted_input)
-
-        print(prediction_error_sigma)
-
-        cholesky_factor = torch.linalg.cholesky(prediction_error_sigma + 1e-6 * torch.eye(prediction_error_sigma.size()[0]))
-
-        noise = torch.randn(sample_number, self.input_dimension)
-
-        error_sample = prediction_error_mu + noise @ cholesky_factor.T
-
-        return error_sample
