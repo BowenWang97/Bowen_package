@@ -3,6 +3,20 @@ import torch
 import torch.nn as nn
 import scipy as sci
 
+def latin_hypercube_sampling(sample_min, sample_max, sample_number = 5):
+
+    sample_dimension = sample_min.size(0)
+
+    sample = torch.empty((sample_number, sample_dimension))
+
+    for d in range(sample_dimension):
+
+        permutation = torch.randperm(sample_number).float()
+
+        sample[:, d] = (permutation + 0.5) /sample_number * (sample_max[d] - sample_min[d]) + sample_min[d]
+
+    return sample
+
 class data_scaler():
 
     def __init__(self, input, output, predicted_input = False):
@@ -50,7 +64,7 @@ class data_scaler():
 
         if (self.output_max == self.output_min):
 
-            scaler_output = torch.ones(self.input.size()[0])
+            scaler_output = torch.ones(self.input.size())
 
         else:
 
@@ -453,7 +467,7 @@ class sampling():
     
 class GP_nn(nn.Module):
 
-    def __init__(self, data, data_noise = torch.tensor([1e-4]), kernel_name = "matern_nu_5", acquisition_function_name = "upper_confidence_bound", xi = torch.tensor(1.), kappa = torch.tensor(2.), lengthscale = None, variance = None):
+    def __init__(self, data, data_noise = torch.tensor([1e-4]), kernel_name = "matern_nu_5", acquisition_function_name = "expected_improvement", xi = torch.tensor(0.1), kappa = torch.tensor(2.), lengthscale = None, variance = None):
 
         super(GP_nn, self).__init__()
 
@@ -540,7 +554,7 @@ class GP_nn(nn.Module):
     
     def ac_ucb(self, mu, sigma):
 
-        ucb = mu - self.kappa * sigma
+        ucb = mu + self.kappa * sigma
 
         return ucb
 
@@ -548,8 +562,9 @@ class GP_nn(nn.Module):
 
         kernel_sample_data_matrix = self.all_kernel_function[self.kernel_name](sample, self.input)
         kernel_data_matrix = self.all_kernel_function[self.kernel_name](self.input, self.input)
-        kernel_sample_matrix = self.all_kernel_function[self.kernel_name](sample, sample)
-        kernel_data_sample_matrix = self.all_kernel_function[self.kernel_name](self.input, sample)
+        # kernel_sample_matrix = self.all_kernel_function[self.kernel_name](sample, sample)
+        kernel_sample_matrix = self.variance
+        # kernel_data_sample_matrix = self.all_kernel_function[self.kernel_name](self.input, sample)
 
         if self.data_noise.dim() == 0:
 
@@ -559,9 +574,26 @@ class GP_nn(nn.Module):
 
             noise_diag = torch.diag(self.data_noise)
 
-        K_inv = torch.linalg.inv(kernel_data_matrix + noise_diag)
+        # K_inv = torch.linalg.inv(kernel_data_matrix + noise_diag)
+
+        jitter = 1e-8
+
+        for _ in range(6):
+
+            try:
+
+                cholesky_factor = torch.linalg.cholesky(kernel_data_matrix + noise_diag + jitter * torch.eye(kernel_data_matrix.size()[0]))
+
+                break
+
+            except:
+
+                jitter = 10 * jitter
+
+        K_inv = torch.cholesky_inverse(cholesky_factor, upper=False)
         mu = kernel_sample_data_matrix @ K_inv @ self.output
-        sigma = torch.diagonal(kernel_sample_matrix - kernel_sample_data_matrix @ K_inv @ kernel_data_sample_matrix, 0)
+        # sigma = kernel_sample_matrix - kernel_sample_data_matrix @ K_inv @ kernel_data_sample_matrix
+        sigma = kernel_sample_matrix - kernel_sample_data_matrix @ K_inv.sum(dim = 1)
 
         return mu, sigma
     
@@ -763,6 +795,8 @@ class gradient_descent_sampling():
 
             prediction_mu, prediction_sigma = self.gp(next_sample)
 
+            # prediction_sigma = torch.diagonal(prediction_sigma, 0)
+
             barrier = self.calculate_barrier(input = next_sample)
 
             loss = - self.gp.acquisition_function(prediction_mu, prediction_sigma) + barrier * barrier_mu
@@ -775,9 +809,9 @@ class gradient_descent_sampling():
 
             #     print(f'NS_Epoch [{ep+1}/{ns_epoch_time}], Loss: {loss.item():.4f}')
 
-            if (loss_0 - loss <= 1e-6):
+            # if ((loss_0 - loss) / loss <= 1e-6):
 
-                break
+            #     break
 
             loss_0 = loss
 
@@ -823,3 +857,109 @@ class gradient_descent_sampling():
             next_sample.copy_(next_sample.clamp(self.input_start, self.input_stop))
 
         return next_sample.detach()
+    
+class residual_analysis():
+
+    def __init__(self, gp_module, predicted_input):
+
+        super(residual_analysis, self).__init__()
+
+        self.gp = gp_module
+        self.predicted_input = predicted_input
+
+        self.input_dimension = predicted_input.size()[0]
+
+    def mc_sampling(self, sample_number):
+
+        prediction_error_mu, prediction_error_sigma = self.gp(self.predicted_input)
+
+        prediction_error_sigma = torch.clamp(prediction_error_sigma, min=1e-8)
+        prediction_error_sigma = torch.sqrt(prediction_error_sigma)
+
+        noise = torch.randn(sample_number, self.input_dimension)
+
+        error_sample = prediction_error_mu + noise * prediction_error_sigma
+
+        return error_sample, prediction_error_sigma
+
+    # def mc_sampling(self, sample_number):
+
+    #     prediction_error_mu, prediction_error_sigma = self.gp(self.predicted_input)
+
+    #     jitter = 1e-8
+
+    #     for _ in range(6):
+
+    #         try:
+
+    #             cholesky_factor = torch.linalg.cholesky(prediction_error_sigma + jitter * torch.eye(prediction_error_sigma.size()[0]))
+
+    #             break
+
+    #         except:
+
+    #             jitter = 10 * jitter
+
+    #     if not 'cholesky_factor' in locals():
+
+    #         L = 0.5 * (prediction_error_sigma + prediction_error_sigma.T)
+    #         eigvals, eigvecs = torch.linalg.eigh(L)
+    #         eigvals_clipped = torch.clamp(eigvals, min=1e-8)
+    #         prediction_error_sigma_pd = (eigvecs * eigvals_clipped) @ eigvecs.T
+
+    #         jitter = 1e-8
+
+    #         for _ in range(7):
+
+    #             try:
+
+    #                 cholesky_factor = torch.linalg.cholesky(prediction_error_sigma_pd + jitter * torch.eye(prediction_error_sigma_pd.size()[0]))
+
+    #                 break
+
+    #             except:
+
+    #                 jitter = 10 * jitter
+
+    #     noise = torch.randn(sample_number, self.input_dimension)
+
+    #     error_sample = prediction_error_mu + noise @ cholesky_factor.T
+
+    #     return error_sample, prediction_error_sigma
+
+    def mc_sensitivity(self, gp_data_scaler, yield_module, predicted_input, predicted_step, predicted_output, sigma, sample_number = 100, beta = 1):
+
+        scaler_error_sample, scaler_error_sigma = self.mc_sampling(sample_number = sample_number)
+
+        error_sample = gp_data_scaler.inverse_minmaxscaler(scaler_predicted_output = scaler_error_sample)
+        error_sigma = gp_data_scaler.inverse_minmaxscaler(scaler_predicted_output = scaler_error_sigma)
+
+        error_mean = torch.mean(error_sample, dim = 0).unsqueeze(-1)
+
+        sample_output = []
+        yield_sample = []
+
+        for ns in range(error_sample.size()[0]):
+
+            sample_output.append(predicted_output + error_sample[ns].unsqueeze(1))
+
+            yield_sample.append(yield_module.normal_yield(input = predicted_input, input_step = predicted_step, output = sample_output[ns], sigma = sigma))
+
+        sample_output = torch.stack(sample_output)
+        yield_sample = torch.stack(yield_sample)
+
+        sample_output_mean = torch.mean(sample_output, dim = 0, keepdim = True)
+        yield_sample_mean = torch.mean(yield_sample, dim = 0, keepdim = True)
+
+        sample_output_centered = sample_output - sample_output_mean
+
+        yield_centered = yield_sample - yield_sample_mean
+
+        cov_yield_sample = torch.mean((yield_centered.unsqueeze(-1) * sample_output_centered), dim = 0)
+        variance_sample_output = torch.mean((sample_output_centered.pow(2)), dim = 0)
+
+        sensitivity = cov_yield_sample / (variance_sample_output + 1e-12)
+
+        sensitivity_score = sensitivity * (predicted_output + error_mean + beta * error_sigma)
+
+        return sensitivity_score

@@ -124,135 +124,168 @@ class polarization():
 
         return max_position
 
-    def bo_optimization_with_wavelength(self, iteration_time = 50):
+    def bo_optimization(self, iteration_time = 60):
 
-        next_input = torch.tensor([85, 85, 85])
-
-        for paddle_number in range(3):
-
-            self.paddle_control.move_to(paddle_number = (paddle_number + 1), position = self.restrict_angle(next_input[paddle_number]).tolist())
-
-        time.sleep(2)
+        current_position = self.paddle_control.read_current_position()
 
         current_power = self.powermeter.measure()
 
-        input = next_input.unsqueeze(0)
-        power = torch.Tensor([current_power])
+        input_min = torch.tensor([0., 0., 0.])
+        input_max = torch.tensor([170., 170., 170.])
 
-        for it in range(iteration_time):
+        initial_sample_number = 30
+        initial_sample = BO.latin_hypercube_sampling(sample_min = input_min, sample_max = input_max, sample_number = initial_sample_number)
 
-            data_scaler = BO.data_scaler(input = input, output = power)
+        input = torch.cat((torch.tensor([current_position]), initial_sample), dim = 0)
+        power =  torch.Tensor([current_power])
 
-            scaler_input, scaler_output  = data_scaler.minmaxscaler(input_min = torch.tensor([0., 0., 0.]), input_max = torch.tensor([170., 170., 170.]))
+        input = torch.round(input)
 
-            scaler_data = torch.cat((scaler_input, scaler_output.unsqueeze(1)), dim = 1)
-
-            gp_module = BO.GP_nn(scaler_data)
-
-            gds = BO.gradient_descent_sampling(gp_module = gp_module, data = scaler_data)
-            
-            scaler_next_input = gds.next_sample()
-
-            next_input = data_scaler.inverse_minmaxscaler(scaler_predicted_input = scaler_next_input)
+        for it in range(1, iteration_time):
 
             for paddle_number in range(3):
 
-                self.paddle_control.move_to(paddle_number = (paddle_number + 1), position = self.restrict_angle(next_input[paddle_number]).tolist())
+                self.paddle_control.move_to(paddle_number = (paddle_number + 1), position = input[it][paddle_number].tolist())
 
-            time.sleep(2)
+            time.sleep(1)
 
             current_power = self.powermeter.measure()
 
-            input = torch.cat((input, next_input.unsqueeze(0)), dim = 0)
-            power = torch.cat((power, torch.Tensor([current_power])), dim = 0)
+            power = torch.cat((power, torch.Tensor([current_power])), dim = 0)    
 
             print(f"\rProgressing: {int(((it + 1)/iteration_time) * 100)}%, Max Power = {max(power)}dB", end = '', flush = True)
+
+            if (it >= initial_sample_number):
+
+                data_scaler = BO.data_scaler(input = input, output = power)
+
+                scaler_input, scaler_output  = data_scaler.minmaxscaler(input_min = input_min, input_max = input_max)
+
+                scaler_data = torch.cat((scaler_input, scaler_output.unsqueeze(1)), dim = 1)
+
+                gp_module = BO.GP_nn(scaler_data)
+
+                gds = BO.gradient_descent_sampling(gp_module = gp_module, data = scaler_data)
+                
+                scaler_next_input = gds.next_sample()
+
+                next_input = data_scaler.inverse_minmaxscaler(scaler_predicted_input = scaler_next_input)
+
+                next_input = torch.round(next_input)
+
+                input = torch.cat((input, next_input.unsqueeze(0)), dim = 0)            
 
         max_position = input[torch.argmax(power).item()]
 
         for paddle_number in range(3):
         
-            self.paddle_control.move_to(paddle_number = (paddle_number + 1), position = self.restrict_angle(max_position[paddle_number]).tolist())
+            self.paddle_control.move_to(paddle_number = (paddle_number + 1), position = max_position[paddle_number].tolist())
 
-        return max_position
+        return max_position, max(power)
     
-    def bo_optimization(self, laser, wavelength_start, wavelength_stop, iteration_time = 100):
+    def bo_optimization_with_wavelength(self, laser, iteration_time = 80, scan_range = 20):
 
-        next_input = torch.tensor([85, 85, 85, (wavelength_start + wavelength_stop)/2])
-
-        for paddle_number in range(3):
-
-            self.paddle_control.move_to(paddle_number = (paddle_number + 1), position = self.restrict_angle(next_input[paddle_number]).tolist())
-
-        laser.set_laser_wavelength(wavelength = next_input[3])
-
-        time.sleep(2)
+        current_position = self.paddle_control.read_current_position()
+        current_wavelength = laser.get_laser_wavelength()
 
         current_power = self.powermeter.measure()
 
-        input = next_input.unsqueeze(0)
-        power = torch.Tensor([current_power])
+        current_input = torch.tensor([[current_position[0], current_position[1], current_position[2], current_wavelength]])
 
-        for it in range(iteration_time):
+        input_min = torch.tensor([current_position[0] - scan_range, current_position[1] - scan_range, current_position[2] - scan_range, 1500])
+        input_max = torch.tensor([current_position[0] + scan_range, current_position[1] + scan_range, current_position[2] + scan_range, 1600])
 
-            data_scaler = BO.data_scaler(input = input, output = power)
+        initial_sample_number = 40
+        initial_sample = BO.latin_hypercube_sampling(sample_min = input_min, sample_max = input_max, sample_number = initial_sample_number)
 
-            scaler_input, scaler_output  = data_scaler.minmaxscaler(input_min = torch.tensor([0., 0., 0., wavelength_start]), input_max = torch.tensor([170., 170., 170., wavelength_stop]))
+        input = torch.cat((current_input, initial_sample), dim = 0)
+        power =  torch.Tensor([current_power])
+        
+        input = torch.round(input)
+        input[:, 0] = self.restrict_angle(input[:, 0])
+        input[:, 1] = self.restrict_angle(input[:, 1])
+        input[:, 2] = self.restrict_angle(input[:, 2])
 
-            scaler_data = torch.cat((scaler_input, scaler_output.unsqueeze(1)), dim = 1)
-
-            gp_module = BO.GP_nn(scaler_data)
-
-            gds = BO.gradient_descent_sampling(gp_module = gp_module, data = scaler_data)
-            
-            scaler_next_input = gds.next_sample()
-
-            next_input = data_scaler.inverse_minmaxscaler(scaler_predicted_input = scaler_next_input)
+        for it in range(1, iteration_time):
 
             for paddle_number in range(3):
 
-                self.paddle_control.move_to(paddle_number = (paddle_number + 1), position = self.restrict_angle(next_input[paddle_number]).tolist())
+                self.paddle_control.move_to(paddle_number = (paddle_number + 1), position = input[it][paddle_number].tolist())
 
-            laser.set_laser_wavelength(wavelength = next_input[3])
+            laser.set_laser_wavelength(wavelength = input[it][3])
 
-            time.sleep(2)
+            time.sleep(1)
 
             current_power = self.powermeter.measure()
 
-            input = torch.cat((input, next_input.unsqueeze(0)), dim = 0)
-            power = torch.cat((power, torch.Tensor([current_power])), dim = 0)
+            power = torch.cat((power, torch.Tensor([current_power])), dim = 0)    
 
             print(f"\rProgressing: {int(((it + 1)/iteration_time) * 100)}%, Max Power = {max(power)}dB", end = '', flush = True)
+
+            if (it >= initial_sample_number):
+
+                data_scaler = BO.data_scaler(input = input, output = power)
+
+                scaler_input, scaler_output  = data_scaler.minmaxscaler(input_min = input_min, input_max = input_max)
+
+                scaler_data = torch.cat((scaler_input, scaler_output.unsqueeze(1)), dim = 1)
+
+                gp_module = BO.GP_nn(scaler_data)
+
+                gds = BO.gradient_descent_sampling(gp_module = gp_module, data = scaler_data)
+                
+                scaler_next_input = gds.next_sample()
+
+                next_input = data_scaler.inverse_minmaxscaler(scaler_predicted_input = scaler_next_input)
+
+                next_input = torch.round(next_input)
+                next_input[0] = self.restrict_angle(next_input[0])
+                next_input[1] = self.restrict_angle(next_input[1])
+                next_input[2] = self.restrict_angle(next_input[2])
+
+                input = torch.cat((input, next_input.unsqueeze(0)), dim = 0)            
 
         max_position = input[torch.argmax(power).item()]
 
         for paddle_number in range(3):
         
-            self.paddle_control.move_to(paddle_number = (paddle_number + 1), position = self.restrict_angle(max_position[paddle_number]).tolist())
+            self.paddle_control.move_to(paddle_number = (paddle_number + 1), position = max_position[paddle_number].tolist())
 
         laser.set_laser_wavelength(wavelength = max_position[3])
 
-        return max_position[:-1]
+        return max_position, max(power)
             
-    def shift_polarization(self, laser, powermeter, wavelength_start, wavelength_stop, wavelength_step):
+    def polarization_scan(self, file_processing, laser, powermeter, wavelength_start, wavelength_stop, wavelength_step, scan_step = 10):
 
-        current_angle = self.paddle_control.read_current_position()
+        current_position = self.paddle_control.read_current_position()
 
-        current_angle = torch.tensor(current_angle)
+        range_angle_1 = torch.arange(0, 170 + scan_step, scan_step) + current_position[0]
+        range_angle_2 = torch.arange(0, 170 + scan_step, scan_step) + current_position[1]
+        range_angle_3 = torch.arange(0, 170 + scan_step, scan_step) + current_position[2]
 
-        range_angle = torch.arange(-45, 67.5, 22.5)
+        range_angle_1 = self.restrict_angle(angle = range_angle_1)
+        range_angle_2 = self.restrict_angle(angle = range_angle_2)
+        range_angle_3 = self.restrict_angle(angle = range_angle_3)
 
-        paddle_1_angle, paddle_2_angle, paddle_3_angle = torch.meshgrid(range_angle, range_angle, range_angle, indexing='ij')
+        range_angle_1 = torch.unique(range_angle_1)
+        range_angle_2 = torch.unique(range_angle_2)
+        range_angle_3 = torch.unique(range_angle_3)
 
-        paddle_1_angle = paddle_1_angle.flatten().unsqueeze(-1) + current_angle[0]
-        paddle_2_angle = paddle_2_angle.flatten().unsqueeze(-1) + current_angle[1]
-        paddle_3_angle = paddle_3_angle.flatten().unsqueeze(-1) + current_angle[2]
+        range_angle_1 = torch.Tensor([int(num) for num in range_angle_1.squeeze().tolist()])
+        range_angle_2 = torch.Tensor([int(num) for num in range_angle_2.squeeze().tolist()])
+        range_angle_3 = torch.Tensor([int(num) for num in range_angle_3.squeeze().tolist()])
+
+        paddle_1_angle, paddle_2_angle, paddle_3_angle = torch.meshgrid(range_angle_1, range_angle_2, range_angle_3, indexing='ij')
+
+        paddle_1_angle = paddle_1_angle.flatten().unsqueeze(-1)
+        paddle_2_angle = paddle_2_angle.flatten().unsqueeze(-1)
+        paddle_3_angle = paddle_3_angle.flatten().unsqueeze(-1)
 
         paddle_angle = torch.cat((paddle_1_angle, paddle_2_angle, paddle_3_angle), dim = 1).tolist()
 
         power = []
 
-        for n in range(125):
+        for n in range(len(paddle_angle)):
 
             for paddle_number in range(3):
 
@@ -264,6 +297,8 @@ class polarization():
 
             file_processing.save_data_csv(wavelength = wavelength, power = power, id = n)
 
+        return paddle_angle
+
 class precise_position():
 
     def __init__(self, powermeter, qs, scan_threshold_dB = -33):
@@ -274,13 +309,12 @@ class precise_position():
 
         self.qs = qs
         self.qs.response_timeout = 10
+        self.qs.ustep[:] = 7
+        self.qs.vmax[:] = 1
 
         self.scan_threshold_dB = scan_threshold_dB
 
-    def range_scan(self, scan_range = 0.05, scan_step = 0.001, move = True):
-
-        self.qs.set_value(0, 'USTEP', 7)
-        self.qs.set_value(1, 'USTEP', 7)
+    def range_scan(self, scan_range = 50, scan_step = 1, move = True):
 
         current_position_x = self.qs.x[0]
         current_position_y = self.qs.x[1]
@@ -300,7 +334,9 @@ class precise_position():
         for n in range(len(position)):
 
             self.qs.x[0] = current_position_x + float(position[n][0])
+            self.qs.wait_until_stopped()
             self.qs.x[1] = current_position_y + float(position[n][1])
+            self.qs.wait_until_stopped()
 
             current_power = self.powermeter.measure()
 
@@ -326,10 +362,7 @@ class precise_position():
 
             return position.tolist(), power, position[max_index].tolist()
         
-    def bo_optimization(self, iteration_time = 50, scan_range = 0.01):
-
-        self.qs.set_value(0, 'USTEP', 7)
-        self.qs.set_value(1, 'USTEP', 7)
+    def bo_optimization(self, iteration_time = 40, scan_range = 3):
 
         current_position_x = self.qs.x[0]
         current_position_y = self.qs.x[1]
@@ -339,44 +372,129 @@ class precise_position():
         position = torch.Tensor([[current_position_x, current_position_y]])
         power =  torch.Tensor([current_power])
 
-        for it in range(iteration_time):
+        input_min = torch.tensor([current_position_x - scan_range, current_position_y - scan_range])
+        input_max = torch.tensor([current_position_x + scan_range, current_position_y + scan_range])
 
-            data_scaler = BO.data_scaler(input = position, output = power)
+        initial_sample_number = 20
+        initial_sample = BO.latin_hypercube_sampling(sample_min = input_min, sample_max = input_max, sample_number = initial_sample_number)
 
-            scaler_input, scaler_output  = data_scaler.minmaxscaler(input_min = torch.tensor([current_position_x - scan_range, current_position_y - scan_range]), input_max = torch.tensor([current_position_x + scan_range, current_position_y + scan_range]))
+        position = torch.cat((position, initial_sample), dim = 0)
 
-            scaler_data = torch.cat((scaler_input, scaler_output.unsqueeze(1)), dim = 1)
+        for it in range(1, iteration_time):
 
-            gp_module = BO.GP_nn(scaler_data)
-
-            gds = BO.gradient_descent_sampling(gp_module = gp_module, data = scaler_data)
-            
-            scaler_next_input = gds.next_sample()
-
-            next_position = data_scaler.inverse_minmaxscaler(scaler_predicted_input = scaler_next_input)
-
-            next_position = next_position.unsqueeze(0)
-
-            self.qs.x[0] = float(next_position[0][0])
-            self.qs.x[1] = float(next_position[0][1])
+            self.qs.x[0] = float(position[it][0])
+            self.qs.wait_until_stopped()
+            self.qs.x[1] = float(position[it][1])
+            self.qs.wait_until_stopped()
 
             time.sleep(1)
 
             current_power = self.powermeter.measure()
 
-            position = torch.cat((position, next_position), dim = 0)
             power = torch.cat((power, torch.Tensor([current_power])), dim = 0)
 
             print(f"\rProgressing: {int(((it + 1)/iteration_time) * 100)}%, Max Power = {max(power)}dB", end = '', flush = True)
 
+            if (it >= initial_sample_number):
+
+                data_scaler = BO.data_scaler(input = position, output = power)
+
+                scaler_input, scaler_output  = data_scaler.minmaxscaler(input_min = input_min, input_max = input_max)
+
+                scaler_data = torch.cat((scaler_input, scaler_output.unsqueeze(1)), dim = 1)
+
+                gp_module = BO.GP_nn(scaler_data)
+
+                gds = BO.gradient_descent_sampling(gp_module = gp_module, data = scaler_data)
+                
+                scaler_next_input = gds.next_sample()
+
+                next_position = data_scaler.inverse_minmaxscaler(scaler_predicted_input = scaler_next_input)
+
+                next_position = next_position.unsqueeze(0)
+                
+                position = torch.cat((position, next_position), dim = 0)
+
         max_position = position[torch.argmax(power).item()]
 
         self.qs.x[0] = float(max_position[0])
+        self.qs.wait_until_stopped()
         self.qs.x[1] = float(max_position[1])
+        self.qs.wait_until_stopped()
 
         return position.tolist(), power.tolist()
+    
+    def bo_optimization_with_wavelength(self, laser, iteration_time = 60, scan_range = 0.5):
 
-    def gp_optimization(self, iteration_time = 50, scan_range = 0.01):
+        current_position_x = self.qs.x[0]
+        current_position_y = self.qs.x[1]
+        current_wavelength = laser.get_laser_wavelength()
+
+        current_power = self.powermeter.measure()
+
+        input = torch.Tensor([[current_position_x, current_position_y, current_wavelength]])
+        power =  torch.Tensor([current_power])
+
+        input_min = torch.tensor([current_position_x - scan_range, current_position_y - scan_range, 1500])
+        input_max = torch.tensor([current_position_x + scan_range, current_position_y + scan_range, 1600])
+
+        initial_sample_number = 30
+        initial_sample = BO.latin_hypercube_sampling(sample_min = input_min, sample_max = input_max, sample_number = initial_sample_number)
+
+        input = torch.cat((input, initial_sample), dim = 0)
+
+        input[:, 2] = torch.round(input[:, 2])
+
+        for it in range(1, iteration_time):
+
+            self.qs.x[0] = float(input[it][0])
+            self.qs.wait_until_stopped()
+            self.qs.x[1] = float(input[it][1])
+            self.qs.wait_until_stopped()
+            laser.set_laser_wavelength(wavelength = input[it][2])
+
+            time.sleep(1)
+
+            current_power = self.powermeter.measure()
+
+            power = torch.cat((power, torch.Tensor([current_power])), dim = 0)
+
+            print(f"\rProgressing: {int(((it + 1)/iteration_time) * 100)}%, Max Power = {max(power)}dB", end = '', flush = True)
+
+            if (it >= initial_sample_number):
+
+                data_scaler = BO.data_scaler(input = input, output = power)
+
+                scaler_input, scaler_output  = data_scaler.minmaxscaler(input_min = input_min, input_max = input_max)
+
+                scaler_data = torch.cat((scaler_input, scaler_output.unsqueeze(1)), dim = 1)
+
+                gp_module = BO.GP_nn(scaler_data)
+
+                gds = BO.gradient_descent_sampling(gp_module = gp_module, data = scaler_data)
+                
+                scaler_next_input = gds.next_sample()
+
+                next_input = data_scaler.inverse_minmaxscaler(scaler_predicted_input = scaler_next_input)
+
+                next_input[2] = torch.round(next_input[2])
+
+                next_input = next_input.unsqueeze(0)
+                
+                input = torch.cat((input, next_input), dim = 0)
+
+        max_position = input[torch.argmax(power).item()]
+
+        self.qs.x[0] = float(max_position[0])
+        self.qs.wait_until_stopped()
+        self.qs.x[1] = float(max_position[1])
+        self.qs.wait_until_stopped()
+
+        laser.set_laser_wavelength(wavelength = max_position[2])
+
+        return input.tolist(), power.tolist()
+
+    def gp_optimization(self, iteration_time = 50, scan_range = 1):
 
         self.qs.set_value(0, 'USTEP', 7)
         self.qs.set_value(1, 'USTEP', 7)
@@ -397,7 +515,9 @@ class precise_position():
         next_position = next_position.unsqueeze(0)
 
         self.qs.x[0] = float(next_position[0][0])
+        self.qs.wait_until_stopped()
         self.qs.x[1] = float(next_position[0][1])
+        self.qs.wait_until_stopped()
 
         time.sleep(2)
 
@@ -429,7 +549,9 @@ class precise_position():
             position = torch.cat((position, next_position), dim = 0)
 
             self.qs.x[0] = float(next_position[0][0])
+            self.qs.wait_until_stopped()
             self.qs.x[1] = float(next_position[0][1])
+            self.qs.wait_until_stopped()
 
             time.sleep(2)
 
@@ -446,7 +568,7 @@ class precise_position():
 
         return position.tolist(), power.tolist()
     
-    def gp_one_point_optimization(self, iteration_time = 50, scan_range = 0.005):
+    def gp_one_point_optimization(self, iteration_time = 50, scan_range = 5):
 
         self.qs.set_value(0, 'USTEP', 7)
         self.qs.set_value(1, 'USTEP', 7)
@@ -506,10 +628,7 @@ class precise_position():
 
         return position.tolist(), power.tolist()
     
-    def wavelength_range_scan(self, file_processing, laser, powermeter, wavelength_start, wavelength_stop, wavelength_step, scan_range = 0.05, scan_step = 0.0001):
-
-        self.qs.set_value(0, 'USTEP', 7)
-        self.qs.set_value(1, 'USTEP', 7)
+    def wavelength_range_scan(self, file_processing, laser, powermeter, wavelength_start, wavelength_stop, wavelength_step, scan_range = 50, scan_step = 3):
 
         current_position_x = self.qs.x[0]
         current_position_y = self.qs.x[1]
@@ -524,14 +643,24 @@ class precise_position():
 
         position = torch.cat((x_position, y_posiotion), dim = 1)
 
+        # scan_x = []
+        # scan_y = []
+
         for n in range(len(position)):
 
             self.qs.x[0] = current_position_x + float(position[n][0])
+            self.qs.wait_until_stopped()
             self.qs.x[1] = current_position_y + float(position[n][1])
+            self.qs.wait_until_stopped()
+
+            # scan_x.append(self.qs.x[0])
+            # scan_y.append(self.qs.x[1])
 
             wavelength, power = wavelength_scan(laser = laser, powermeter = powermeter, wavelength_start = wavelength_start, wavelength_stop = wavelength_stop, wavelength_step = wavelength_step)
 
-            file_processing.save_data_csv(wavelength = wavelength, power = power, id = n)            
+            file_processing.save_data_csv(wavelength = wavelength, power = power, id = n)
+
+        # return scan_x, scan_y
 
 class rough_position():
 
@@ -575,7 +704,7 @@ class rough_position():
             self.linear_actuator_x.move_by(distance_um = move[n][0])
             self.linear_actuator_y.move_by(distance_um = move[n][1])
 
-            time.sleep(1)
+            time.sleep(2)
 
             current_power = self.powermeter.measure()
 
@@ -648,7 +777,7 @@ class rough_position():
         self.linear_actuator_x.move_to(distance_um = float(max_position[0]))
         self.linear_actuator_y.move_to(distance_um = float(max_position[1]))
 
-        return position.tolist(), power.tolist()
+        return position.tolist(), max(power)
         
     def gp_optimization(self, iteration_time = 200, scan_range = 20):
 

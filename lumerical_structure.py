@@ -1458,7 +1458,7 @@ def SOI_grating_coupler_2d_v2(path,filename, etch_depth, fiber_gap, fiber_x, fil
         fdtd.feval(path+"\\"+filename+".lsf")
         fdtd.save(path+"\\"+filename+".fsp")
 
-def SOI_chirped_grating_coupler_2d_v2(path,filename, etch_depth, fiber_gap, fiber_x, grating_number, input_grating_teeth, input_grating_etch, output_grating_teeth, output_grating_etch, mode_number = 1, center_wavelength = 1.55, frequency_points = 101, wavelength_span = 0.1):
+def SOI_chirped_grating_coupler_2d_v2(path,filename, etch_depth, fiber_gap, fiber_x, grating_number, input_grating_teeth, input_grating_etch, output_grating_teeth, output_grating_etch, mode_number = 1, center_wavelength = 1.55, frequency_points = 101, wavelength_span = 0.1, mesh_accuracy = 2):
 
     lsf_file = open(path+"\\"+filename+".lsf","w+")
 
@@ -1478,7 +1478,7 @@ def SOI_chirped_grating_coupler_2d_v2(path,filename, etch_depth, fiber_gap, fibe
     lsf_file.write('frequency_points = %d;\n'%frequency_points)
     lsf_file.write('grating_number = %d;\n'%grating_number)
     lsf_file.write('grating_width = 10*um;\n')
-    lsf_file.write('mesh_accuracy = 2;\n')
+    lsf_file.write('mesh_accuracy = %d;\n'%mesh_accuracy)
     lsf_file.write('region_gap = 5*um;\n')
     lsf_file.write('side_waveguide_length = 20*um;\n')
     lsf_file.write('Si_mat = "Si (Silicon) - Palik";\n')
@@ -1908,19 +1908,19 @@ def SOI_chirped_grating_coupler_2d_v2(path,filename, etch_depth, fiber_gap, fibe
     lsf_file.write('set("y",waveguide_thickness+TOX_thickness+fiber_gap+source_y);\n')
     lsf_file.write('set("z",0);\n')
     lsf_file.write('set("z span",width);\n')
-    lsf_file.write('addmodeexpansion;\n')
-    lsf_file.write('set("name","mode_monitor_output");\n')
-    lsf_file.write('set("monitor type",2);\n')
-    lsf_file.write('set("x",grating_x_2+(waveguide_thickness+TOX_thickness+fiber_gap+source_y)*sin(fiber_angle/180*pi)+fiber_x);\n')
-    lsf_file.write('set("x span",fiber_core_radius*6);\n')
-    lsf_file.write('set("y",waveguide_thickness+TOX_thickness+fiber_gap+source_y);\n')
-    lsf_file.write('set("z",0);\n')
-    lsf_file.write('set("z span",width);\n')
-    lsf_file.write('set("theta",-fiber_angle);\n')
-    lsf_file.write('set("mode selection",4);\n')
-    lsf_file.write('set("selected mode numbers",%d);\n'%mode_number)
-    lsf_file.write('select("mode_monitor_output");\n')
-    lsf_file.write('setexpansion("output","power_monitor_output");\n')
+    # lsf_file.write('addmodeexpansion;\n')
+    # lsf_file.write('set("name","mode_monitor_output");\n')
+    # lsf_file.write('set("monitor type",2);\n')
+    # lsf_file.write('set("x",grating_x_2+(waveguide_thickness+TOX_thickness+fiber_gap+source_y)*sin(fiber_angle/180*pi)+fiber_x);\n')
+    # lsf_file.write('set("x span",fiber_core_radius*6);\n')
+    # lsf_file.write('set("y",waveguide_thickness+TOX_thickness+fiber_gap+source_y);\n')
+    # lsf_file.write('set("z",0);\n')
+    # lsf_file.write('set("z span",width);\n')
+    # lsf_file.write('set("theta",-fiber_angle);\n')
+    # lsf_file.write('set("mode selection",4);\n')
+    # lsf_file.write('set("selected mode numbers",%d);\n'%mode_number)
+    # lsf_file.write('select("mode_monitor_output");\n')
+    # lsf_file.write('setexpansion("output","power_monitor_output");\n')
 
     lsf_file.close()
 
