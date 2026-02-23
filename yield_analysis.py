@@ -103,6 +103,8 @@ class yield_analysis():
         
         normalization = 1.0 / torch.sqrt((2 * torch.pi) ** self.input_dimension * sigma_det)
         pdf_vector = normalization * torch.exp(exponent)
+
+        del diff, quad, exponent, normalization, sigma_inv, sigma_det
         
         return pdf_vector
 
@@ -123,6 +125,8 @@ class yield_analysis():
                 condition_mask = condition_mask & (output[:, n_condition] >= self.condition_min[n_condition]) & (output[:, n_condition] <= self.condition_max[n_condition])
             
             yield_value[n] = torch.sum(pdf_vector[condition_mask], dim=0) * torch.prod(input_step)
+
+            del pdf_vector
             
         return yield_value
 

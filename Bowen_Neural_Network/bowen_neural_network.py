@@ -256,6 +256,75 @@ class three_layer_ANN(nn.Module):
         output = self.output(out)
 
         return output
+    
+class four_layer_ANN(nn.Module):
+
+    def __init__(self, input_dimension, hidden_dimension, output_dimension, nonlinear_layer_name = ["relu", "relu", "relu", "relu"]):
+
+        super(four_layer_ANN, self).__init__()
+
+        self.hidden_1 = nn.Linear(input_dimension, hidden_dimension[0])
+        self.hidden_2 = nn.Linear(hidden_dimension[0], hidden_dimension[1])
+        self.hidden_3 = nn.Linear(hidden_dimension[1], hidden_dimension[2])
+        self.hidden_4 = nn.Linear(hidden_dimension[2], hidden_dimension[3])
+        self.output = nn.Linear(hidden_dimension[3], output_dimension)
+
+        self.nonlinear_layer_name = nonlinear_layer_name
+
+        self.all_nonlinear_layer = {
+            "sigmoid": nn.Sigmoid(),
+            "relu": nn.ReLU()
+        }
+
+    def forward(self, input):
+
+        out = self.hidden_1(input)
+        out = self.all_nonlinear_layer[self.nonlinear_layer_name[0]](out)
+        out = self.hidden_2(out)
+        out = self.all_nonlinear_layer[self.nonlinear_layer_name[1]](out)
+        out = self.hidden_3(out)
+        out = self.all_nonlinear_layer[self.nonlinear_layer_name[2]](out)
+        out = self.hidden_4(out)
+        out = self.all_nonlinear_layer[self.nonlinear_layer_name[3]](out)
+        output = self.output(out)
+
+        return output
+    
+class five_layer_ANN(nn.Module):
+
+    def __init__(self, input_dimension, hidden_dimension, output_dimension, nonlinear_layer_name = ["relu", "relu", "relu", "relu", "relu"]):
+
+        super(five_layer_ANN, self).__init__()
+
+        self.hidden_1 = nn.Linear(input_dimension, hidden_dimension[0])
+        self.hidden_2 = nn.Linear(hidden_dimension[0], hidden_dimension[1])
+        self.hidden_3 = nn.Linear(hidden_dimension[1], hidden_dimension[2])
+        self.hidden_4 = nn.Linear(hidden_dimension[2], hidden_dimension[3])
+        self.hidden_5 = nn.Linear(hidden_dimension[3], hidden_dimension[4])
+        self.output = nn.Linear(hidden_dimension[4], output_dimension)
+
+        self.nonlinear_layer_name = nonlinear_layer_name
+
+        self.all_nonlinear_layer = {
+            "sigmoid": nn.Sigmoid(),
+            "relu": nn.ReLU()
+        }
+
+    def forward(self, input):
+
+        out = self.hidden_1(input)
+        out = self.all_nonlinear_layer[self.nonlinear_layer_name[0]](out)
+        out = self.hidden_2(out)
+        out = self.all_nonlinear_layer[self.nonlinear_layer_name[1]](out)
+        out = self.hidden_3(out)
+        out = self.all_nonlinear_layer[self.nonlinear_layer_name[2]](out)
+        out = self.hidden_4(out)
+        out = self.all_nonlinear_layer[self.nonlinear_layer_name[3]](out)
+        out = self.hidden_5(out)
+        out = self.all_nonlinear_layer[self.nonlinear_layer_name[4]](out)
+        output = self.output(out)
+
+        return output
 
 class Bayesian_Layer_VI(nn.Module):
 
@@ -564,9 +633,11 @@ class MCMC(nn.Module):
 
             theta_samples.append(current_theta.clone())
 
-            if (n % 1000 == 0):
+            if ((n+1) % 10000 == 0):
 
-                print(f"Sample {n}, Acceptance Rate: {accept_count / (n+1):.3f}")
+                print(f"\rSample {n+1}, Acceptance Rate: {accept_count / (n+1):.3f}", end = '', flush = True)
+
+        print()
 
         return theta_samples
     
@@ -613,9 +684,11 @@ class MCMC(nn.Module):
 
             theta_samples.append(current_theta.clone())
 
-            if (n % 100 == 0):
+            if ((n+1) % 1000 == 0):
 
-                print(f"Sample {n}, Acceptance Rate: {accept_count / (n+1):.3f}")
+                print(f"\rSample {n+1}, Acceptance Rate: {accept_count / (n+1):.3f}", end = '', flush = True)
+
+        print()
 
         return theta_samples
     
@@ -670,9 +743,11 @@ class MCMC(nn.Module):
 
             theta_samples.append(current_theta.clone())
 
-            if (n % 100 == 0):
+            if ((n+1) % 1000 == 0):
 
-                print(f"Sample {n}, Acceptance Rate: {current_number / (n+1):.3f}")
+                print(f"\rSample {n+1}, Acceptance Rate: {current_number / (n+1):.3f}", end = '', flush = True)
+
+        print()
 
         return theta_samples
     

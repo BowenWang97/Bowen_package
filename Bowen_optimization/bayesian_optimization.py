@@ -1,4 +1,5 @@
 import numpy as np
+import time
 import torch
 import torch.nn as nn
 import scipy as sci
@@ -767,7 +768,7 @@ class gradient_descent_sampling():
 
         barrier = soft_barrier.sum() + hard_barrier.sum()
 
-        return barrier
+        return barrier.detach()
     
     def calculate_laplacian(self, input, l_sigma = 1.0):
 
@@ -780,7 +781,7 @@ class gradient_descent_sampling():
         degree_matrix = torch.diag(torch.sum(laplacian_weight, dim = 1))
         laplacian = degree_matrix - laplacian_weight
 
-        return laplacian
+        return laplacian.detach()
 
     def next_sample(self, ns_epoch_time = 100, barrier_mu = 0., learning_rate = 0.001):
 
@@ -804,16 +805,6 @@ class gradient_descent_sampling():
             ac_optimizer.zero_grad()
             loss.backward(retain_graph = True)
             ac_optimizer.step()
-
-            # if (ep + 1) % 100 == 0:
-
-            #     print(f'NS_Epoch [{ep+1}/{ns_epoch_time}], Loss: {loss.item():.4f}')
-
-            # if ((loss_0 - loss) / loss <= 1e-6):
-
-            #     break
-
-            # loss_0 = loss
 
         with torch.no_grad():
 
@@ -962,4 +953,57 @@ class residual_analysis():
 
         sensitivity_score = sensitivity * (predicted_output + error_mean + beta * error_sigma)
 
+        del scaler_error_sample, scaler_error_sigma, error_sample, error_sigma, error_mean, sample_output, yield_sample, sample_output_mean, yield_sample_mean, sample_output_centered, yield_centered, cov_yield_sample, variance_sample_output, sensitivity
+
         return sensitivity_score
+    
+    def calculate_lipschitz(self, score, qutantile = 0.95):
+
+        lipschitz = 0.
+
+        for n in range(self.input_dimension):
+
+            score_diff = score - score[n]
+            input_diff = self.predicted_input - self.predicted_input[n]
+
+            norm_input_diff = torch.norm(input_diff, p = 2, dim = 1).unsqueeze(-1)
+
+            norm_input_diff[norm_input_diff == 0] = 1.
+
+            gradient = score_diff / (norm_input_diff)
+
+            gradient_max = torch.quantile(gradient, qutantile)
+
+            lipschitz = max(lipschitz, gradient_max)
+
+        del score_diff, input_diff, norm_input_diff, gradient, gradient_max
+
+        return lipschitz
+    
+    def max_point_lipschitz_penalization(self, sensitivity_score, candidate_number = 1):
+
+        score = (sensitivity_score - sensitivity_score.min()) / (sensitivity_score.max() - sensitivity_score.min())
+
+        position = []
+
+        lipschitz = self.calculate_lipschitz(score = score, qutantile = 0.9)
+
+        for _ in range(candidate_number):
+
+            max_score = torch.max(score)
+
+            max_position = torch.argmax(score)
+
+            position.append(max_position.item())
+
+            penalization = torch.zeros_like(score)
+
+            for d in range(self.input_dimension):
+
+                penalization[d] = torch.sigmoid(score[d] - max_score + lipschitz * torch.norm((self.predicted_input[d] - self.predicted_input[max_position])))
+
+            score = score * penalization
+
+        del score, lipschitz, max_score, max_position, penalization
+
+        return position
