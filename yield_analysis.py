@@ -114,15 +114,15 @@ class yield_analysis():
 
         yield_value = torch.zeros(input_number)
 
+        condition_mask = torch.ones(input_number, dtype=torch.bool, device=input.device)
+            
+        for n_condition in range(self.condition_number):
+
+            condition_mask = condition_mask & (output[:, n_condition] >= self.condition_min[n_condition]) & (output[:, n_condition] <= self.condition_max[n_condition])
+
         for n in range(input_number):
         
             pdf_vector = self.normal_probability_density_function(x = input, mu = input[n], sigma = sigma)
-            
-            condition_mask = torch.ones(input_number, dtype=torch.bool, device=input.device)
-            
-            for n_condition in range(self.condition_number):
-
-                condition_mask = condition_mask & (output[:, n_condition] >= self.condition_min[n_condition]) & (output[:, n_condition] <= self.condition_max[n_condition])
             
             yield_value[n] = torch.sum(pdf_vector[condition_mask], dim=0) * torch.prod(input_step)
 
