@@ -985,12 +985,15 @@ class residual_analysis():
         score = (sensitivity_score - sensitivity_score.min()) / (sensitivity_score.max() - sensitivity_score.min())
 
         position = []
+        return_score = []
 
         lipschitz = self.calculate_lipschitz(score = score, qutantile = 0.9)
 
         for _ in range(candidate_number):
 
             max_score = torch.max(score)
+
+            return_score.append(max_score.item())
 
             max_position = torch.argmax(score)
 
@@ -1006,4 +1009,60 @@ class residual_analysis():
 
         del score, lipschitz, max_score, max_position, penalization
 
-        return position
+        return position, return_score    
+    
+    def mc_sensitivity_1(self, gp_data_scaler, yield_module, predicted_input, predicted_step, predicted_output, sigma, non_variance_size, sample_number = 100, beta = 1):
+
+        scaler_error_sample, scaler_error_sigma = self.mc_sampling(sample_number = sample_number)
+
+        error_sample = gp_data_scaler.inverse_minmaxscaler(scaler_predicted_output = scaler_error_sample)
+        error_sigma = gp_data_scaler.inverse_minmaxscaler(scaler_predicted_output = scaler_error_sigma).unsqueeze(-1)
+
+        error_mean = torch.mean(error_sample, dim = 0).unsqueeze(-1)
+
+        sample_output = []
+        yield_sample = []
+
+        for ns in range(error_sample.size()[0]):
+
+            output_layer = []
+            yield_layer = []
+
+            for l in range(non_variance_size):
+
+                output = predicted_output[l::non_variance_size] + error_sample[ns, l::non_variance_size].unsqueeze(1)
+
+                value = yield_module.normal_yield(input = predicted_input[::non_variance_size, :-1], input_step = predicted_step[:-1], output = output, sigma = sigma)
+
+                output_layer.append(output)
+                yield_layer.append(value)
+
+            output_layer = torch.stack(output_layer, dim = 1)
+            output_layer = output_layer.flatten()
+            yield_layer = torch.stack(yield_layer, dim = 1)
+            yield_layer = yield_layer.flatten()
+
+            sample_output.append(yield_layer)
+
+            yield_sample.append(output_layer)
+
+        sample_output = torch.stack(sample_output).unsqueeze(-1)
+        yield_sample = torch.stack(yield_sample)
+
+        sample_output_mean = torch.mean(sample_output, dim = 0, keepdim = True)
+        yield_sample_mean = torch.mean(yield_sample, dim = 0, keepdim = True)
+
+        sample_output_centered = sample_output - sample_output_mean
+
+        yield_centered = yield_sample - yield_sample_mean
+
+        cov_yield_sample = torch.mean((yield_centered.unsqueeze(-1) * sample_output_centered), dim = 0)
+        variance_sample_output = torch.mean((sample_output_centered.pow(2)), dim = 0)
+
+        sensitivity = cov_yield_sample / (variance_sample_output + 1e-12)
+
+        sensitivity_score = sensitivity * (predicted_output + error_mean + beta * error_sigma)
+
+        del scaler_error_sample, scaler_error_sigma, error_sample, error_sigma, error_mean, sample_output, yield_sample, sample_output_mean, yield_sample_mean, sample_output_centered, yield_centered, cov_yield_sample, variance_sample_output, sensitivity
+
+        return sensitivity_score

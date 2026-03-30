@@ -3326,14 +3326,14 @@ def SOI_grating_coupler_3d_v4_out(path,filename,add_waveguide_length,etch_depth,
         fdtd.feval(path+"\\"+filename+".lsf")
         fdtd.save(path+"\\"+filename+".fsp")
 
-def SOI_grating_coupler_3d_v4(path,filename,add_waveguide_length,etch_depth,fiber_gap,fiber_x,fill_factor,grating_period,mode_number = 1):
+def SOI_grating_coupler_3d_v4(path,filename,add_waveguide_length,etch_depth,fiber_gap,fiber_x,fill_factor,grating_period,mode_number = 1,fiber_y = 0):
 
     lsf_file = open(path+"\\"+filename+".lsf","w+")
 
     lsf_file.write('deleteall;\n')
     lsf_file.write('um = 1e-6;\n')
     lsf_file.write('BOX_thickness = 2*um;\n')
-    lsf_file.write('bridge_waveguide_length = 155.5*um+%d*um;\n'%add_waveguide_length)
+    lsf_file.write('bridge_waveguide_length = %d*um;\n'%add_waveguide_length)
     lsf_file.write('center_wavelength = 1.55*um;\n')
     lsf_file.write('etch_depth = %.3f*um;\n'%etch_depth)
     lsf_file.write('fiber_angle = 10;\n')
@@ -3343,7 +3343,7 @@ def SOI_grating_coupler_3d_v4(path,filename,add_waveguide_length,etch_depth,fibe
     lsf_file.write('fiber_gap = %.3f*um;\n'%fiber_gap)
     lsf_file.write('fiber_length = 100*um;\n')
     lsf_file.write('fiber_x = %.3f*um;\n'%fiber_x)
-    lsf_file.write('fiber_y = 0;\n')
+    lsf_file.write('fiber_y = %.3f*um;\n'%fiber_y)
     lsf_file.write('fill_factor = %.3f;\n'%fill_factor)
     lsf_file.write('ring_theta = 1.5;\n')
     lsf_file.write('frequency_points = 100;\n')
@@ -7663,7 +7663,9 @@ def get_efficiency_out(path, filename):
 
         else:
 
-            output_efficiency[i] = 10*np.log10(monitor_output_T[i])    
+            output_efficiency[i] = 10*np.log10(monitor_output_T[i])
+
+    sio.savemat(path+"\\"+filename+".mat",{"wavelength":wavelength,"output_efficiency":output_efficiency})
 
     return wavelength,output_efficiency
 

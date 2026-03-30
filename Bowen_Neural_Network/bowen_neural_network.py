@@ -5,7 +5,7 @@ from torch.distributions import Normal
 
 class data_scaler():
 
-    def __init__(self, input, output, predicted_input = False):
+    def __init__(self, input, output, predicted_input = None):
 
         super(data_scaler, self).__init__()
 
@@ -23,7 +23,7 @@ class data_scaler():
         scaler_input = (self.input - self.input_mean) / self.input_std
         scaler_output = (self.output - self.output_mean) / self.output_std
 
-        if (self.predicted_input is not False):
+        if (self.predicted_input is not None):
 
             scaler_predicted_input = ( self.predicted_input - self.input_mean) / self.input_std        
 
@@ -48,8 +48,8 @@ class data_scaler():
 
         scaler_input = (self.input - self.input_min) / (self.input_max - self.input_min)
         scaler_output = (self.output - self.output_min) / (self.output_max - self.output_min)
-
-        if (self.predicted_input is not False):
+        
+        if (self.predicted_input is not None):
 
             scaler_predicted_input = (self.predicted_input - self.input_min) / (self.input_max - self.input_min)
 
@@ -64,6 +64,13 @@ class data_scaler():
         predicted_output = scaler_predicted_output * (self.output_max - self.output_min) + self.output_min
 
         return predicted_output
+    
+    def inverse_minmaxscaler_noise(self, scaler_predicted_mean, scaler_predicted_noise):
+
+        predicted_mean = scaler_predicted_mean * (self.output_max - self.output_min) + self.output_min
+        predicted_noise = scaler_predicted_noise * (self.output_max - self.output_min)
+
+        return predicted_mean, torch.abs(predicted_noise)
     
     def inverse_minmaxscaler_theta(self, scaler_weight, scaler_bias):
 
@@ -242,7 +249,8 @@ class three_layer_ANN(nn.Module):
 
         self.all_nonlinear_layer = {
             "sigmoid": nn.Sigmoid(),
-            "relu": nn.ReLU()
+            "relu": nn.ReLU(),
+            "tanh": nn.Tanh()
         }
 
     def forward(self, input):
@@ -253,6 +261,31 @@ class three_layer_ANN(nn.Module):
         out = self.all_nonlinear_layer[self.nonlinear_layer_name[1]](out)
         out = self.hidden_3(out)
         out = self.all_nonlinear_layer[self.nonlinear_layer_name[2]](out)
+        output = self.output(out)
+
+        return output
+    
+class three_layer_ANN_with_Sine(nn.Module):
+
+    def __init__(self, input_dimension, hidden_dimension, output_dimension, omega = torch.pi):
+
+        super(three_layer_ANN_with_Sine, self).__init__()
+
+        self.hidden_1 = nn.Linear(input_dimension, hidden_dimension[0])
+        self.hidden_2 = nn.Linear(hidden_dimension[0], hidden_dimension[1])
+        self.hidden_3 = nn.Linear(hidden_dimension[1], hidden_dimension[2])
+        self.output = nn.Linear(hidden_dimension[2], output_dimension)
+
+        self.omega = omega
+
+    def forward(self, input):
+
+        out = self.hidden_1(input)
+        out = torch.sin(self.omega * out)
+        out = self.hidden_2(out)
+        out = torch.relu(out)
+        out = self.hidden_3(out)
+        out = torch.relu(out)
         output = self.output(out)
 
         return output
@@ -518,49 +551,52 @@ class MCMC(nn.Module):
 
         n = self.output.numel()
 
-        return -0.5 * torch.sum((self.output - predict_output) ** 2) / self.output_noise ** 2 - 0.5 * n * torch.log(torch.tensor(2 * torch.pi * self.output_noise ** 2))
+        return -0.5 * torch.sum((self.output - predict_output) ** 2) / (self.output_noise ** 2) - 0.5 * n * torch.log(2 * torch.pi * (self.output_noise ** 2))
     
     def log_posterior(self, theta):
         
         self.set_theta(theta)
 
         return self.log_prior(theta) + self.log_likelihood()
-    
+
     # def potential_energy_gradient(self, theta):
 
-    #     self.module.zero_grad()
     #     theta = theta.detach().clone().requires_grad_()
+    #     self.set_theta(theta)
+        
     #     loss = -self.log_posterior(theta)
+        
     #     loss.backward()
-    #     gradient = []
+    #     gradient = theta.grad.clone()
 
-    #     for parameter in self.module.parameters():
-
-    #         gradient.append(parameter.grad.clone())
-
-    #     return gradient
+    #     return gradient.detach()
 
     def potential_energy_gradient(self, theta):
 
-        theta = theta.detach().clone().requires_grad_()
         self.set_theta(theta)
-        # self.module.zero_grad()
-        loss = -self.log_posterior(theta)
-        # gradient = torch.autograd.grad(loss, theta)[0]
+        self.module.zero_grad()
+
+        log_likelihood = self.log_likelihood()
+        
+        flat_params = torch.cat([p.view(-1) for p in self.module.parameters()])
+        log_prior = self.log_prior(flat_params)
+        
+        loss = -(log_prior + log_likelihood)
         loss.backward()
-        gradient = theta.grad.clone()
+
+        gradient = torch.cat([p.grad.clone().view(-1) for p in self.module.parameters()])
 
         return gradient.detach()
     
     def leapfrog(self, proposal_theta, proposal_momentum, direction):
 
         gradient = self.potential_energy_gradient(proposal_theta)
-        proposal_momentum = proposal_momentum + 0.5 * direction * self.proposal_step * gradient
+        proposal_momentum = proposal_momentum - 0.5 * direction * self.proposal_step * gradient
 
         proposal_theta = proposal_theta + direction * self.proposal_step * proposal_momentum
 
         gradient = self.potential_energy_gradient(proposal_theta)
-        proposal_momentum = proposal_momentum + 0.5 * direction * self.proposal_step * gradient
+        proposal_momentum = proposal_momentum - 0.5 * direction * self.proposal_step * gradient
 
         return proposal_theta, proposal_momentum, gradient
 
@@ -633,7 +669,7 @@ class MCMC(nn.Module):
 
             theta_samples.append(current_theta.clone())
 
-            if ((n+1) % 10000 == 0):
+            if ((n+1) % 1000 == 0):
 
                 print(f"\rSample {n+1}, Acceptance Rate: {accept_count / (n+1):.3f}", end = '', flush = True)
 
@@ -654,17 +690,19 @@ class MCMC(nn.Module):
             current_momentum = torch.randn_like(current_theta)
 
             gradient = self.potential_energy_gradient(current_theta)
-            proposal_momentum = current_momentum + 0.5 * self.proposal_step * gradient
+            proposal_momentum = current_momentum - 0.5 * self.proposal_step * gradient
 
-            for _ in range(leapfrog_number):
+            for lp in range(leapfrog_number):
 
                 proposal_theta = proposal_theta + self.proposal_step * proposal_momentum
 
                 gradient = self.potential_energy_gradient(proposal_theta)
-                proposal_momentum = proposal_momentum + self.proposal_step * gradient
 
-            proposal_momentum = proposal_momentum +  0.5 * self.proposal_step * gradient
-            # proposal_momentum = - proposal_momentum
+                if (lp != leapfrog_number-1):
+
+                    proposal_momentum = proposal_momentum - self.proposal_step * gradient
+
+            proposal_momentum = proposal_momentum - 0.5 * self.proposal_step * gradient
 
             current_potential_energy = - self.log_posterior(current_theta)
             current_kinetic_energy = 0.5* torch.sum(current_momentum **2)
@@ -762,6 +800,321 @@ class MCMC(nn.Module):
             with torch.no_grad():
 
                 predictions.append(self.module(input_test))
+        
+        return torch.stack(predictions)
+
+class MCMC_heteroscedastic(nn.Module):
+
+    def __init__(self, module, input, output, prior_sigma = 1., proposal_step = 0.1):
+
+        super(MCMC_heteroscedastic, self).__init__()
+
+        self.module = module
+        self.input = input
+        self.output = output
+        self.prior_sigma = prior_sigma
+        self.proposal_step = proposal_step
+        self.initial_theta = torch.cat([parameter.detach().clone().view(-1) for parameter in self.module.parameters()])
+    
+    def set_theta(self, theta):
+
+        with torch.no_grad():
+
+            assert theta.numel() == sum(p.numel() for p in self.module.parameters())
+
+            theta_offset = 0
+
+            for parameter in self.module.parameters():
+
+                theta_number = parameter.numel()                
+
+                parameter.copy_(theta[theta_offset : theta_offset+theta_number].view_as(parameter))
+
+                theta_offset = theta_offset + theta_number
+
+    def log_prior(self, theta):
+
+        return -0.5 * torch.sum((theta / self.prior_sigma) **2)
+
+    def log_likelihood(self):
+        
+        predict_output = self.module(self.input)
+
+        predict_mu = predict_output[:, 0].unsqueeze(-1)
+        predict_sigma = predict_output[:, 1].unsqueeze(-1)
+
+        log_l = -0.5 * (((self.output - predict_mu) ** 2) / (predict_sigma ** 2) + torch.log(2 * torch.pi * (predict_sigma ** 2)))
+
+        return torch.sum(log_l)
+    
+    def log_posterior(self, theta):
+        
+        self.set_theta(theta)
+
+        return self.log_prior(theta) + self.log_likelihood()
+
+    # def potential_energy_gradient(self, theta):
+
+    #     theta = theta.detach().clone().requires_grad_()
+    #     self.set_theta(theta)
+        
+    #     loss = -self.log_posterior(theta)
+        
+    #     loss.backward()
+    #     gradient = theta.grad.clone()
+
+    #     return gradient.detach()
+
+    def potential_energy_gradient(self, theta):
+
+        self.set_theta(theta)
+        self.module.zero_grad()
+
+        log_likelihood = self.log_likelihood()
+        
+        flat_params = torch.cat([p.view(-1) for p in self.module.parameters()])
+        log_prior = self.log_prior(flat_params)
+        
+        loss = -(log_prior + log_likelihood)
+        loss.backward()
+
+        gradient = torch.cat([p.grad.clone().view(-1) for p in self.module.parameters()])
+
+        return gradient.detach()
+    
+    def leapfrog(self, proposal_theta, proposal_momentum, direction):
+
+        gradient = self.potential_energy_gradient(proposal_theta)
+        proposal_momentum = proposal_momentum - 0.5 * direction * self.proposal_step * gradient
+
+        proposal_theta = proposal_theta + direction * self.proposal_step * proposal_momentum
+
+        gradient = self.potential_energy_gradient(proposal_theta)
+        proposal_momentum = proposal_momentum - 0.5 * direction * self.proposal_step * gradient
+
+        return proposal_theta, proposal_momentum, gradient
+
+    def binary_tree_building(self, theta, momentum, gradient, depth, hamilton_threshold, direction):
+
+        if (depth == 0):
+
+            proposal_theta, proposal_momentum, gradient = self.leapfrog(theta, momentum, direction)
+
+            hamilton = - self.log_posterior (proposal_theta) + 0.5 * torch.sum(proposal_momentum **2)
+
+            valid = (hamilton_threshold <= -hamilton)
+
+            return proposal_theta, proposal_momentum, gradient, proposal_theta, proposal_momentum, gradient, proposal_theta, valid, 1
+
+        else:
+
+            theta_minus, momentum_minus, gradient_minus, theta_plus, momentum_plus, gradient_plus, proposal_theta, valid_1, n1 = \
+                self.binary_tree_building(theta, momentum, gradient, depth - 1, hamilton_threshold, direction)
+
+            if (direction == -1):
+
+                theta_minus, momentum_minus, gradient_minus, _, _, _, proposal_theta_2, valid_2, n2 = \
+                    self.binary_tree_building(theta_minus, momentum_minus, gradient_minus, depth - 1, hamilton_threshold, direction)
+
+            else:
+
+                _, _, _, theta_plus, momentum_plus, gradient_plus, proposal_theta_2, valid_2, n2 = \
+                    self.binary_tree_building(theta_plus, momentum_plus, gradient_plus, depth - 1, hamilton_threshold, direction)
+
+            if ((n1 + n2) > 0):
+
+                accept_ratio = n2 / (n1 + n2) 
+                
+            else:
+
+                accept_ratio = 0
+
+            if torch.rand(1) < accept_ratio:
+
+                proposal_theta = proposal_theta_2
+
+            valid = (valid_1 and valid_2 and not (torch.dot((theta_plus - theta_minus), momentum_minus) < 0 or torch.dot((theta_plus - theta_minus), momentum_plus) < 0))
+
+            return theta_minus, momentum_minus, gradient_minus, theta_plus, momentum_plus, gradient_plus, proposal_theta, valid, n1+n2
+
+    def metropolis_hasting(self, sample_number = 10000):
+
+        theta_samples = []
+        accept_count = 0
+
+        current_theta = self.initial_theta
+        current_log_posterior = self.log_posterior(current_theta)
+
+        for n in range(sample_number):
+
+            proposal_theta = current_theta + self.proposal_step * torch.randn_like(current_theta)
+
+            proposal_log_posterior = self.log_posterior(proposal_theta)
+
+            accept_ratio = torch.exp(proposal_log_posterior - current_log_posterior)
+            accept_ratio = torch.clamp(accept_ratio, max = 1.0)
+
+            if torch.rand(1) < accept_ratio:
+
+                current_theta = proposal_theta
+                current_log_posterior = proposal_log_posterior
+
+                accept_count = accept_count + 1
+
+            theta_samples.append(current_theta.clone())
+
+            if ((n+1) % 1000 == 0):
+
+                print(f"\rSample {n+1}, Acceptance Rate: {accept_count / (n+1):.3f}", end = '', flush = True)
+
+        print()
+
+        return theta_samples
+    
+    def hamiltonian_monte_carlo(self, sample_number = 10000, leapfrog_number = 10):
+
+        theta_samples = []
+        accept_count = 0
+
+        current_theta = self.initial_theta 
+
+        for n in range(sample_number):
+
+            proposal_theta = current_theta.clone()
+            current_momentum = torch.randn_like(current_theta)
+
+            gradient = self.potential_energy_gradient(current_theta)
+            proposal_momentum = current_momentum - 0.5 * self.proposal_step * gradient
+
+            for lp in range(leapfrog_number):
+
+                proposal_theta = proposal_theta + self.proposal_step * proposal_momentum
+
+                gradient = self.potential_energy_gradient(proposal_theta)
+
+                if (lp != leapfrog_number-1):
+
+                    proposal_momentum = proposal_momentum - self.proposal_step * gradient
+
+            proposal_momentum = proposal_momentum - 0.5 * self.proposal_step * gradient
+
+            current_potential_energy = - self.log_posterior(current_theta)
+            current_kinetic_energy = 0.5* torch.sum(current_momentum **2)
+
+            proposal_potential_energy = - self.log_posterior(proposal_theta)
+            proposal_kinetic_energy = 0.5* torch.sum(proposal_momentum **2)
+
+            accept_ratio = torch.exp(current_potential_energy + current_kinetic_energy - proposal_potential_energy - proposal_kinetic_energy)
+            accept_ratio = torch.clamp(accept_ratio, max = 1.0)
+
+            if torch.rand(1) < accept_ratio:
+
+                current_theta = proposal_theta
+                current_momentum = proposal_momentum
+
+                accept_count = accept_count + 1
+
+            theta_samples.append(current_theta.clone())
+
+            if ((n+1) % 1000 == 0):
+
+                print(f"\rSample {n+1}, Acceptance Rate: {accept_count / (n+1):.3f}", end = '', flush = True)
+
+        print()
+
+        return theta_samples
+    
+    def no_u_turn_sampler(self, sample_number = 10000, max_depth = 10):
+
+        theta_samples = []
+
+        current_theta = self.initial_theta
+
+        gradient = self.potential_energy_gradient(current_theta)
+
+        for n in range(sample_number):
+
+            current_momentum = torch.randn_like(current_theta)
+
+            hamilton = - self.log_posterior (current_theta) + 0.5 * torch.sum(current_momentum **2)
+
+            hamilton_threshold = torch.log(torch.rand(1)) - hamilton
+
+            theta_minus = current_theta.clone()
+            theta_plus = current_theta.clone()
+            momentum_minus = current_momentum.clone()
+            momentum_plus = current_momentum.clone()
+            gradient_minus = gradient.clone()
+            gradient_plus = gradient.clone()
+            proposal_theta = current_theta.clone()
+            depth = 0
+            current_number = 1
+            current_valid = True
+
+            while (current_valid and (depth < max_depth)):
+
+                direction = 2 * torch.randint(0, 2, ()).item() - 1
+
+                if (direction == -1):
+
+                    theta_minus, momentum_minus, gradient_minus, _, _, _, proposal_theta, valid, proposal_number = self.binary_tree_building(theta_minus, momentum_minus, gradient_minus, depth, hamilton_threshold, direction)
+
+                else:
+
+                    _, _, _, theta_plus, momentum_plus, gradient_plus, proposal_theta, valid, proposal_number = self.binary_tree_building(theta_plus, momentum_plus, gradient_plus, depth, hamilton_threshold, direction)
+
+                if (valid and (torch.rand(1) < proposal_number/current_number)):
+
+                    current_theta = proposal_theta
+
+                current_number = current_number + proposal_number
+                depth = depth +1
+                current_valid = (valid and not (torch.dot((theta_plus - theta_minus), momentum_minus) < 0 or torch.dot((theta_plus - theta_minus), momentum_plus) < 0))
+
+            gradient = self.potential_energy_gradient(current_theta)
+
+            theta_samples.append(current_theta.clone())
+
+            if ((n+1) % 100 == 0):
+
+                print(f"\rSample {n+1}, Acceptance Rate: {current_number / (n+1):.3f}", end = '', flush = True)
+
+        print()
+
+        return theta_samples
+    
+    def predict(self, input_test, theta_samples):
+
+        predictions = []
+
+        for parameter in theta_samples:
+
+            self.set_theta(parameter)
+
+            with torch.no_grad():
+
+                predictions.append(self.module(input_test))
+        
+        return torch.stack(predictions)
+    
+    def predict_noise(self, input_test, theta_samples):
+
+        predictions = []
+
+        for parameter in theta_samples:
+
+            self.set_theta(parameter)
+
+            with torch.no_grad():
+
+                output = self.module(input_test)
+
+                output_mean = output[:, 0]
+                output_noise = output[:, 1]
+
+                outputs = output_mean + output_noise * torch.randn(1)
+
+                predictions.append(outputs)
         
         return torch.stack(predictions)
 

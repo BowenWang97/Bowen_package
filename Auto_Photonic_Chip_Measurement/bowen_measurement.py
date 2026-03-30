@@ -70,11 +70,13 @@ class polarization():
 
         return angle
     
-    def scan_optimization(self, max_position, step = 2):
+    def scan_optimization(self, step = 2):
 
-        range_angle_1 = torch.arange(max_position[0] - 2 * step, max_position[0] + 3 * step, step)
-        range_angle_2 = torch.arange(max_position[1] - 2 * step, max_position[1] + 3 * step, step)
-        range_angle_3 = torch.arange(max_position[2] - 2 * step, max_position[2] + 3 * step, step)
+        current_position = self.paddle_control.read_current_position()
+
+        range_angle_1 = torch.arange(current_position[0] - 2 * step, current_position[0] + 3 * step, step)
+        range_angle_2 = torch.arange(current_position[1] - 2 * step, current_position[1] + 3 * step, step)
+        range_angle_3 = torch.arange(current_position[2] - 2 * step, current_position[2] + 3 * step, step)
 
         range_angle_1 = self.restrict_angle(angle = range_angle_1)
         range_angle_2 = self.restrict_angle(angle = range_angle_2)
@@ -94,15 +96,15 @@ class polarization():
         paddle_2_angle = paddle_2_angle.flatten().unsqueeze(-1)
         paddle_3_angle = paddle_3_angle.flatten().unsqueeze(-1)
 
-        paddle_angle = torch.cat((paddle_1_angle, paddle_2_angle, paddle_3_angle), dim = 1).tolist()
+        position = torch.cat((paddle_1_angle, paddle_2_angle, paddle_3_angle), dim = 1).tolist()
 
         power = []
 
-        for n in range(len(paddle_angle)):
+        for n in range(len(position)):
 
             for paddle_number in range(3):
                 
-                self.paddle_control.move_to(paddle_number = (paddle_number + 1), position = paddle_angle[n][paddle_number])
+                self.paddle_control.move_to(paddle_number = (paddle_number + 1), position = position[n][paddle_number])
 
             time.sleep(1)
                 
@@ -110,11 +112,13 @@ class polarization():
 
             power.append(current_power)
 
-            print(f"\rProgressing: {int(((n + 1)/len(paddle_angle)) * 50 + 50)}%, Max Power = {max(power)}dB", end = '', flush = True)
+            print(f"\rProgressing: {int(((n + 1)/len(position)) * 100)}%, Max Power = {max(power)}dB", end = '', flush = True)
+
+        print()
 
         power = torch.tensor(power)
 
-        max_position = paddle_angle[torch.argmax(power).item()]
+        max_position = position[torch.argmax(power).item()]
 
         # print(max_position)
 
@@ -122,9 +126,9 @@ class polarization():
         
             self.paddle_control.move_to(paddle_number=(paddle_number + 1), position = max_position[paddle_number])
 
-        return max_position
+        return position, power.tolist(), max_position, max(power)
 
-    def bo_optimization(self, iteration_time = 60):
+    def bo_optimization(self, iteration_time = 40):
 
         current_position = self.paddle_control.read_current_position()
 
@@ -133,21 +137,20 @@ class polarization():
         input_min = torch.tensor([0., 0., 0.])
         input_max = torch.tensor([170., 170., 170.])
 
-        initial_sample_number = 30
-        initial_sample = BO.latin_hypercube_sampling(sample_min = input_min, sample_max = input_max, sample_number = initial_sample_number)
+        initial_sample = BO.latin_hypercube_sampling(sample_min = input_min, sample_max = input_max, sample_number = 30)
 
-        input = torch.cat((torch.tensor([current_position]), initial_sample), dim = 0)
+        position = torch.cat((torch.tensor([current_position]), initial_sample), dim = 0)
         power =  torch.Tensor([current_power])
 
-        input = torch.round(input)
+        position = torch.round(position)
 
         for it in range(1, iteration_time):
 
             for paddle_number in range(3):
 
-                self.paddle_control.move_to(paddle_number = (paddle_number + 1), position = input[it][paddle_number].tolist())
+                self.paddle_control.move_to(paddle_number = (paddle_number + 1), position = position[it][paddle_number].tolist())
 
-            time.sleep(1)
+            time.sleep(0.5)
 
             current_power = self.powermeter.measure()
 
@@ -155,9 +158,9 @@ class polarization():
 
             print(f"\rProgressing: {int(((it + 1)/iteration_time) * 100)}%, Max Power = {max(power)}dB", end = '', flush = True)
 
-            if (it >= initial_sample_number):
+            if (it >= 30):
 
-                data_scaler = BO.data_scaler(input = input, output = power)
+                data_scaler = BO.data_scaler(input = position, output = power)
 
                 scaler_input, scaler_output  = data_scaler.minmaxscaler(input_min = input_min, input_max = input_max)
 
@@ -173,15 +176,17 @@ class polarization():
 
                 next_input = torch.round(next_input)
 
-                input = torch.cat((input, next_input.unsqueeze(0)), dim = 0)            
+                position = torch.cat((position, next_input.unsqueeze(0)), dim = 0)
 
-        max_position = input[torch.argmax(power).item()]
+        print()
+
+        max_position = position[torch.argmax(power).item()]
 
         for paddle_number in range(3):
         
             self.paddle_control.move_to(paddle_number = (paddle_number + 1), position = max_position[paddle_number].tolist())
 
-        return max_position, max(power)
+        return position.tolist(), power.tolist(), max_position.tolist(), max(power)
     
     def bo_optimization_with_wavelength(self, laser, iteration_time = 80, scan_range = 20):
 
@@ -214,7 +219,7 @@ class polarization():
 
             laser.set_laser_wavelength(wavelength = input[it][3])
 
-            time.sleep(1)
+            time.sleep(0.5)
 
             current_power = self.powermeter.measure()
 
@@ -253,15 +258,15 @@ class polarization():
 
         laser.set_laser_wavelength(wavelength = max_position[3])
 
-        return max_position, max(power)
+        return input.tolist(), power.tolist(), max_position.tolist(), max(power)
             
-    def polarization_scan(self, file_processing, laser, powermeter, wavelength_start, wavelength_stop, wavelength_step, scan_step = 10):
+    def polarization_scan(self, file_processing, laser, powermeter, wavelength_start, wavelength_stop, wavelength_number, scan_step = 10, scan_range = 50):
 
         current_position = self.paddle_control.read_current_position()
 
-        range_angle_1 = torch.arange(0, 170 + scan_step, scan_step) + current_position[0]
-        range_angle_2 = torch.arange(0, 170 + scan_step, scan_step) + current_position[1]
-        range_angle_3 = torch.arange(0, 170 + scan_step, scan_step) + current_position[2]
+        range_angle_1 = torch.arange(-scan_range, scan_range + scan_step, scan_step) + current_position[0]
+        range_angle_2 = torch.arange(-scan_range, scan_range + scan_step, scan_step) + current_position[1]
+        range_angle_3 = torch.arange(-scan_range, scan_range + scan_step, scan_step) + current_position[2]
 
         range_angle_1 = self.restrict_angle(angle = range_angle_1)
         range_angle_2 = self.restrict_angle(angle = range_angle_2)
@@ -291,9 +296,9 @@ class polarization():
 
                 self.paddle_control.move_to(paddle_number = (paddle_number + 1), position = paddle_angle[n][paddle_number])
 
-            time.sleep(2)
+            time.sleep(0.5)
 
-            wavelength, power = wavelength_scan(laser = laser, powermeter = powermeter, wavelength_start = wavelength_start, wavelength_stop = wavelength_stop, wavelength_step = wavelength_step)
+            wavelength, power = wavelength_scan(laser = laser, powermeter = powermeter, wavelength_start = wavelength_start, wavelength_stop = wavelength_stop, wavelength_number = wavelength_number)
 
             file_processing.save_data_csv(wavelength = wavelength, power = power, id = n)
 
@@ -309,12 +314,12 @@ class precise_position():
 
         self.qs = qs
         self.qs.response_timeout = 10
+
         self.qs.ustep[:] = 7
-        self.qs.vmax[:] = 1
 
         self.scan_threshold_dB = scan_threshold_dB
 
-    def range_scan(self, scan_range = 50, scan_step = 1, move = True):
+    def scan_optimization(self, scan_range = 0.6, scan_step = 0.2, move = True):
 
         current_position_x = self.qs.x[0]
         current_position_y = self.qs.x[1]
@@ -338,15 +343,19 @@ class precise_position():
             self.qs.x[1] = current_position_y + float(position[n][1])
             self.qs.wait_until_stopped()
 
+            time.sleep(0.5)
+
             current_power = self.powermeter.measure()
 
             power.append(current_power)
 
-        power = torch.tensor(power)
-            
-        max_power = power.max()
+            print(f"\rProgressing: {int(((n + 1)/len(position)) * 100)}%, Max Power = {max(power)}dB", end = '', flush = True)
 
-        max_index = torch.where(power == max_power)[0].item()
+        print()
+
+        power = torch.tensor(power)
+
+        max_index = torch.argmax(power).item()
 
         self.qs.x[0] = current_position_x
         self.qs.x[1] = current_position_y
@@ -369,7 +378,7 @@ class precise_position():
 
         current_power = self.powermeter.measure()
 
-        position = torch.Tensor([[current_position_x, current_position_y]])
+        input = torch.Tensor([[current_position_x, current_position_y]])
         power =  torch.Tensor([current_power])
 
         input_min = torch.tensor([current_position_x - scan_range, current_position_y - scan_range])
@@ -378,16 +387,16 @@ class precise_position():
         initial_sample_number = 20
         initial_sample = BO.latin_hypercube_sampling(sample_min = input_min, sample_max = input_max, sample_number = initial_sample_number)
 
-        position = torch.cat((position, initial_sample), dim = 0)
+        input = torch.cat((input, initial_sample), dim = 0)
 
         for it in range(1, iteration_time):
 
-            self.qs.x[0] = float(position[it][0])
+            self.qs.x[0] = float(input[it][0])
             self.qs.wait_until_stopped()
-            self.qs.x[1] = float(position[it][1])
+            self.qs.x[1] = float(input[it][1])
             self.qs.wait_until_stopped()
 
-            time.sleep(1)
+            time.sleep(0.5)
 
             current_power = self.powermeter.measure()
 
@@ -397,7 +406,7 @@ class precise_position():
 
             if (it >= initial_sample_number):
 
-                data_scaler = BO.data_scaler(input = position, output = power)
+                data_scaler = BO.data_scaler(input = input, output = power)
 
                 scaler_input, scaler_output  = data_scaler.minmaxscaler(input_min = input_min, input_max = input_max)
 
@@ -409,20 +418,22 @@ class precise_position():
                 
                 scaler_next_input = gds.next_sample()
 
-                next_position = data_scaler.inverse_minmaxscaler(scaler_predicted_input = scaler_next_input)
+                next_input = data_scaler.inverse_minmaxscaler(scaler_predicted_input = scaler_next_input)
 
-                next_position = next_position.unsqueeze(0)
+                next_input = torch.round(next_input * 1000) / 1000
+
+                next_input = next_input.unsqueeze(0)
                 
-                position = torch.cat((position, next_position), dim = 0)
+                input = torch.cat((input, next_input), dim = 0)
 
-        max_position = position[torch.argmax(power).item()]
+        max_input = input[torch.argmax(power).item()]
 
-        self.qs.x[0] = float(max_position[0])
+        self.qs.x[0] = float(max_input[0])
         self.qs.wait_until_stopped()
-        self.qs.x[1] = float(max_position[1])
+        self.qs.x[1] = float(max_input[1])
         self.qs.wait_until_stopped()
 
-        return position.tolist(), power.tolist()
+        return input.tolist(), power.tolist(), max_input.tolist(), max(power)
     
     def bo_optimization_with_wavelength(self, laser, iteration_time = 60, scan_range = 0.5):
 
@@ -453,7 +464,7 @@ class precise_position():
             self.qs.wait_until_stopped()
             laser.set_laser_wavelength(wavelength = input[it][2])
 
-            time.sleep(1)
+            time.sleep(0.5)
 
             current_power = self.powermeter.measure()
 
@@ -477,27 +488,25 @@ class precise_position():
 
                 next_input = data_scaler.inverse_minmaxscaler(scaler_predicted_input = scaler_next_input)
 
+                next_input = torch.round(next_input * 1000) / 1000
                 next_input[2] = torch.round(next_input[2])
 
                 next_input = next_input.unsqueeze(0)
                 
                 input = torch.cat((input, next_input), dim = 0)
 
-        max_position = input[torch.argmax(power).item()]
+        max_input = input[torch.argmax(power).item()]
 
-        self.qs.x[0] = float(max_position[0])
+        self.qs.x[0] = float(max_input[0])
         self.qs.wait_until_stopped()
-        self.qs.x[1] = float(max_position[1])
+        self.qs.x[1] = float(max_input[1])
         self.qs.wait_until_stopped()
 
-        laser.set_laser_wavelength(wavelength = max_position[2])
+        laser.set_laser_wavelength(wavelength = max_input[2])
 
-        return input.tolist(), power.tolist()
+        return input.tolist(), power.tolist(), max_input.tolist(), max(power)
 
     def gp_optimization(self, iteration_time = 50, scan_range = 1):
-
-        self.qs.set_value(0, 'USTEP', 7)
-        self.qs.set_value(1, 'USTEP', 7)
 
         current_position_x = self.qs.x[0]
         current_position_y = self.qs.x[1]
@@ -519,7 +528,7 @@ class precise_position():
         self.qs.x[1] = float(next_position[0][1])
         self.qs.wait_until_stopped()
 
-        time.sleep(2)
+        time.sleep(0.5)
 
         current_power = self.powermeter.measure()
 
@@ -553,7 +562,7 @@ class precise_position():
             self.qs.x[1] = float(next_position[0][1])
             self.qs.wait_until_stopped()
 
-            time.sleep(2)
+            time.sleep(0.5)
 
             current_power = self.powermeter.measure()
 
@@ -595,7 +604,7 @@ class precise_position():
 
             power_sample = self.powermeter.measure()
 
-            time.sleep(1)
+            time.sleep(0.5)
 
             all_input = torch.cat((position, position_sample.unsqueeze(0)))
             all_output = torch.cat((power, torch.Tensor([[power_sample]])), dim = 0)
@@ -613,7 +622,7 @@ class precise_position():
             self.qs.x[0] = float(next_position[0])
             self.qs.x[1] = float(next_position[1])
 
-            time.sleep(1)
+            time.sleep(0.5)
 
             current_power = self.powermeter.measure()
 
@@ -628,6 +637,116 @@ class precise_position():
 
         return position.tolist(), power.tolist()
     
+    def hill_climbing_layer(self, paddle_control, polarization, layer = 3, wavelength_optimization = False, laser = False):
+
+        save_power = []
+
+        for l in range(layer):
+
+            layer_power = []
+
+            for n in range(2):
+
+                loop_condition = 0
+                direction = 1
+                initial_current_power = self.powermeter.measure()
+
+                while True:
+
+                    current_position = self.qs.x[n]
+                    current_power = self.powermeter.measure()
+
+                    self.qs.x[n] = current_position + direction * 1/2**(l + 1)
+
+                    self.qs.wait_until_stopped()
+                    time.sleep(1)
+
+                    power = self.powermeter.measure()
+
+                    if (current_power > power):
+
+                        self.qs.x[n] = current_position
+                        direction = direction * -1
+                        loop_condition = loop_condition + 1
+
+                    if (loop_condition >= 6 or power > initial_current_power):
+
+                        break
+
+            current_power = self.powermeter.measure()
+            layer_power.append(current_power)
+            print(f"Layer: {l}, Position Optimization, Power = {current_power}dB")
+
+            # _, _, _, max_power = polarization.scan_optimization(step = 2 * (layer - l))
+            # layer_power.append(max_power)
+            # print(f"Layer: {l}, Polarization Optimization, Power = {max_power}dB")
+
+            for n in range(3):
+
+                loop_condition = 0
+                direction = 1
+                initial_current_power = self.powermeter.measure()
+
+                while True:
+
+                    current_position = paddle_control.read_current_position()
+                    current_power = self.powermeter.measure()
+
+                    paddle_control.move_to(paddle_number = n + 1, position = int(polarization.restrict_angle(torch.tensor([current_position[n] + direction * 2 * (layer - l)]))))
+
+                    time.sleep(1)
+
+                    power = self.powermeter.measure()
+
+                    if (current_power > power):
+
+                        paddle_control.move_to(paddle_number = n + 1, position = int(current_position[n]))
+                        direction = direction * -1
+                        loop_condition = loop_condition + 1
+
+                    if (loop_condition >= 6 or power > initial_current_power):
+
+                        break
+
+            current_power = self.powermeter.measure()
+            layer_power.append(current_power)
+            print(f"Layer: {l}, Polarization Optimization, Power = {current_power}dB")
+
+            if wavelength_optimization:
+
+                loop_condition = 0
+                direction = 1
+                initial_current_power = self.powermeter.measure()
+
+                while True:
+
+                    current_wavelength = laser.get_laser_wavelength()
+                    current_power = self.powermeter.measure()
+
+                    laser.set_laser_wavelength(wavelength = current_wavelength + direction * (layer - l))
+
+                    time.sleep(1)
+
+                    power = self.powermeter.measure()
+
+                    if (current_power > power):
+
+                        laser.set_laser_wavelength(wavelength = current_wavelength)
+                        direction = direction * -1
+                        loop_condition = loop_condition + 1
+
+                    if (loop_condition >= 6 or power > initial_current_power):
+
+                        break
+
+                current_power = self.powermeter.measure()
+                layer_power.append(current_power)
+                print(f"Layer: {l}, Wavelegnth Optimization, Power = {current_power}dB")
+
+            save_power.append(layer_power)
+
+        return save_power
+
     def wavelength_range_scan(self, file_processing, laser, powermeter, wavelength_start, wavelength_stop, wavelength_step, scan_range = 50, scan_step = 3):
 
         current_position_x = self.qs.x[0]
@@ -704,13 +823,15 @@ class rough_position():
             self.linear_actuator_x.move_by(distance_um = move[n][0])
             self.linear_actuator_y.move_by(distance_um = move[n][1])
 
-            time.sleep(2)
+            time.sleep(1)
 
             current_power = self.powermeter.measure()
 
             power.append(current_power)
 
             print(f"\rProgressing: {int(((n + 1)/len(position)) * 100)}%, Max Power = {max(power)}dB", end = '', flush = True)
+
+        print()
 
         power = torch.tensor(power)
             
@@ -732,7 +853,7 @@ class rough_position():
 
             return position.tolist(), power, position[max_index].tolist()
         
-    def bo_optimization(self, iteration_time = 50, scan_range = 20):
+    def bo_optimization(self, iteration_time = 30, scan_range = 40):
 
         current_position_x = self.linear_actuator_x.read_current_position()
         current_position_y = self.linear_actuator_y.read_current_position()
@@ -742,42 +863,78 @@ class rough_position():
         position = torch.Tensor([[current_position_x, current_position_y]])
         power =  torch.Tensor([current_power])
 
-        for it in range(iteration_time):
+        input_min = torch.tensor([current_position_x - scan_range, current_position_y - scan_range])
+        input_max = torch.tensor([current_position_x + scan_range, current_position_y + scan_range])
 
-            data_scaler = BO.data_scaler(input = position, output = power)
+        initial_sample = BO.latin_hypercube_sampling(sample_min = input_min, sample_max = input_max, sample_number = 20)
 
-            scaler_input, scaler_output  = data_scaler.minmaxscaler(input_min = torch.tensor([current_position_x - scan_range, current_position_y - scan_range]), input_max = torch.tensor([current_position_x + scan_range, current_position_y + scan_range]))
+        position = torch.cat((position, initial_sample), dim = 0)
+        power =  torch.Tensor([current_power])
 
-            scaler_data = torch.cat((scaler_input, scaler_output.unsqueeze(1)), dim = 1)
+        for it in range(1, iteration_time):
 
-            gp_module = BO.GP_nn(scaler_data)
+            self.linear_actuator_x.move_to(distance_um = float(position[it][0]))
+            self.linear_actuator_y.move_to(distance_um = float(position[it][1]))
 
-            gds = BO.gradient_descent_sampling(gp_module = gp_module, data = scaler_data)
-            
-            scaler_next_input = gds.next_sample()
-
-            next_position = data_scaler.inverse_minmaxscaler(scaler_predicted_input = scaler_next_input)
-
-            next_position = torch.round(next_position, decimals = 1).unsqueeze(0)
-
-            self.linear_actuator_x.move_to(distance_um = float(next_position[0][0]))
-            self.linear_actuator_y.move_to(distance_um = float(next_position[0][1]))
-
-            time.sleep(2)
+            time.sleep(0.5)
 
             current_power = self.powermeter.measure()
 
-            position = torch.cat((position, next_position), dim = 0)
-            power = torch.cat((power, torch.Tensor([current_power])), dim = 0)
+            power = torch.cat((power, torch.Tensor([current_power])), dim = 0)    
 
             print(f"\rProgressing: {int(((it + 1)/iteration_time) * 100)}%, Max Power = {max(power)}dB", end = '', flush = True)
 
-        max_position = position[torch.argmax(power).item()]
+            if (it >= 20):
 
-        self.linear_actuator_x.move_to(distance_um = float(max_position[0]))
-        self.linear_actuator_y.move_to(distance_um = float(max_position[1]))
+                data_scaler = BO.data_scaler(input = position, output = power)
 
-        return position.tolist(), max(power)
+                scaler_input, scaler_output  = data_scaler.minmaxscaler(input_min = input_min, input_max = input_max)
+
+                scaler_data = torch.cat((scaler_input, scaler_output.unsqueeze(1)), dim = 1)
+
+                gp_module = BO.GP_nn(scaler_data)
+
+                gds = BO.gradient_descent_sampling(gp_module = gp_module, data = scaler_data)
+                
+                scaler_next_input = gds.next_sample()
+
+                next_position = data_scaler.inverse_minmaxscaler(scaler_predicted_input = scaler_next_input)
+
+                next_position = torch.round(next_position, decimals = 1).unsqueeze(0)
+
+                position = torch.cat((position, next_position), dim = 0)
+
+            # self.linear_actuator_x.move_to(distance_um = float(next_position[0][0]))
+            # self.linear_actuator_y.move_to(distance_um = float(next_position[0][1]))
+
+            # time.sleep(1)
+
+            # current_power = self.powermeter.measure()
+
+            # position = torch.cat((position, next_position), dim = 0)
+            # power = torch.cat((power, torch.Tensor([current_power])), dim = 0)
+
+            # print(f"\rProgressing: {int(((it + 1)/iteration_time) * 100)}%, Max Power = {max(power)}dB", end = '', flush = True)
+
+        print()
+
+        max_power = power.max()
+
+        max_index = torch.argmax(power).item()
+
+        if (max_power >= self.scan_threshold_dB):
+
+            self.linear_actuator_x.move_to(distance_um = float(position[max_index][0]))
+            self.linear_actuator_y.move_to(distance_um = float(position[max_index][1]))
+
+            return position.tolist(), power, (position[max_index] - torch.tensor([current_position_x, current_position_y])).tolist()
+        
+        else:
+
+            self.linear_actuator_x.move_to(distance_um = current_position_x)
+            self.linear_actuator_y.move_to(distance_um = current_position_y)
+
+            return position.tolist(), power, (position[max_index] - torch.tensor([current_position_x, current_position_y])).tolist()
         
     def gp_optimization(self, iteration_time = 200, scan_range = 20):
 
@@ -796,7 +953,7 @@ class rough_position():
         self.linear_actuator_x.move_to(distance_um = float(next_position[0][0]))
         self.linear_actuator_y.move_to(distance_um = float(next_position[0][1]))
 
-        time.sleep(1)
+        time.sleep(0.5)
 
         current_power = self.powermeter.measure()
 
@@ -829,7 +986,7 @@ class rough_position():
             self.linear_actuator_x.move_to(distance_um = float(next_position[0][0]))
             self.linear_actuator_y.move_to(distance_um = float(next_position[0][1]))
 
-            time.sleep(1)
+            time.sleep(0.5)
 
             current_power = self.powermeter.measure()
 
@@ -906,9 +1063,9 @@ class file_processing():
 
         plt.savefig(self.path + '\\id_' + id + '.png')
     
-def wavelength_scan(laser, powermeter, wavelength_start = 1500, wavelength_stop = 1600, wavelength_step = 101):
+def wavelength_scan(laser, powermeter, wavelength_start = 1500, wavelength_stop = 1600, wavelength_number = 101):
 
-    wavelength = np.linspace(wavelength_start, wavelength_stop, wavelength_step)
+    wavelength = np.linspace(wavelength_start, wavelength_stop, wavelength_number)
     laser.set_laser_wavelength(wavelength[0])
     time.sleep(10)
 
@@ -917,7 +1074,7 @@ def wavelength_scan(laser, powermeter, wavelength_start = 1500, wavelength_stop 
     for n in range(len(wavelength)):
 
         laser.set_laser_wavelength(wavelength[n])
-        time.sleep(1)
+        time.sleep(0.5)
 
         current_power = powermeter.measure()
 
@@ -925,4 +1082,36 @@ def wavelength_scan(laser, powermeter, wavelength_start = 1500, wavelength_stop 
 
         print(f"\rProgressing: {int(((n + 1)/len(wavelength)) * 100)}%, Wavelegnth = {wavelength[n]}nm, Power = {power[n]}dB", end = '', flush = True)
 
+    print()
+
     return wavelength, power
+
+def wavelength_optimization(laser, powermeter, step = 5):
+
+    current_wavelength = laser.get_laser_wavelength()
+
+    wavelength = torch.arange(current_wavelength - 3 * step, current_wavelength + 4 * step, step)
+
+    power = []
+
+    for n in range(len(wavelength)):
+                
+        laser.set_laser_wavelength(wavelength = wavelength(n))
+
+        time.sleep(1)
+                
+        current_power = powermeter.measure()
+
+        power.append(current_power)
+
+        print(f"\rProgressing: {int(((n + 1)/len(wavelength)) * 100)}%, Max Power = {max(power)}dB", end = '', flush = True)
+
+    print()
+
+    power = torch.tensor(power)
+
+    max_position = wavelength[torch.argmax(power).item()]
+    
+    laser.set_laser_wavelength(wavelength = max_position)
+
+    return max_position
