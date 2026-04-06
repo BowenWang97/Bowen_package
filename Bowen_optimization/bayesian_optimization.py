@@ -253,12 +253,13 @@ class kernel_function():
     
 class gaussian_progress():
 
-    def __init__(self, kernel_self, sample,  data_noise = None, acquisition_function_name = "expected_improvement", xi = torch.tensor(1.), kappa = torch.tensor(2.)):
+    def __init__(self, kernel_self, sample,  data_noise = torch.tensor([1e-4]), acquisition_function_name = "expected_improvement", xi = torch.tensor(0.1), kappa = torch.tensor(2.)):
 
         super(gaussian_progress, self).__init__()
 
         self.all_kernel_function = kernel_self.all_kernel_function
         self.data_number = kernel_self.data_number
+        self.data_noise = data_noise
         self.kernel_data_matrix = kernel_self.kernel_data_matrix
         self.kernel_sample_matrix = kernel_self.kernel_sample_matrix
         self.input = kernel_self.input
@@ -269,14 +270,6 @@ class gaussian_progress():
 
         self.sample = sample
         self.acquisition_function_name = acquisition_function_name
-
-        if (data_noise == None):
-
-            self.data_sigma = torch.zeros(self.data_number)
-
-        else:
-
-            self.data_sigma = data_noise
 
         self.sample_number = self.sample.size()[0]
 
@@ -297,9 +290,33 @@ class gaussian_progress():
         for n in range(self.sample_number):
 
             kernel_data_sample_matrix = kernel_function.kernel_matrix(self, self.sample[n])
+
+            if self.data_noise.dim() == 0:
+
+                noise_diag = self.data_noise * torch.eye(self.data_number)
+
+            else:
+
+                noise_diag = torch.diag(self.data_noise)
+
+            jitter = 1e-8
+
+            for _ in range(6):
+
+                try:
+
+                    cholesky_factor = torch.linalg.cholesky(self.kernel_data_matrix + noise_diag + jitter * torch.eye(self.kernel_data_matrix.size()[0]))
+
+                    break
+
+                except:
+
+                    jitter = 10 * jitter
+
+            K_inv = torch.cholesky_inverse(cholesky_factor, upper=False)
             
-            self.mu[n] = torch.linalg.multi_dot((kernel_data_sample_matrix, torch.linalg.inv(self.kernel_data_matrix + self.data_sigma * torch.eye(self.data_number)), self.output))
-            self.sigma[n] = self.kernel_sample_matrix - torch.linalg.multi_dot((kernel_data_sample_matrix, torch.linalg.inv(self.kernel_data_matrix + self.data_sigma * torch.eye(self.data_number)), torch.unsqueeze(kernel_data_sample_matrix, 1)))
+            self.mu[n] = kernel_data_sample_matrix @ K_inv @ self.output
+            self.sigma[n] = self.kernel_sample_matrix - kernel_data_sample_matrix @ K_inv @ torch.unsqueeze(kernel_data_sample_matrix, 1)
 
         self.sigma = torch.clamp(self.sigma, min = 0.)
 
