@@ -196,7 +196,8 @@ class one_layer_ANN(nn.Module):
 
         self.all_nonlinear_layer = {
             "sigmoid": nn.Sigmoid(),
-            "relu": nn.ReLU()
+            "relu": nn.ReLU(),
+            "tanh": nn.Tanh()
         }   
 
     def forward(self, input):
@@ -221,7 +222,10 @@ class two_layer_ANN(nn.Module):
 
         self.all_nonlinear_layer = {
             "sigmoid": nn.Sigmoid(),
-            "relu": nn.ReLU()
+            "relu": nn.ReLU(),
+            "tanh": nn.Tanh(),
+            "softplus": nn.Softplus(),
+            "gelu": nn.GELU()
         }
 
     def forward(self, input):
@@ -250,7 +254,9 @@ class three_layer_ANN(nn.Module):
         self.all_nonlinear_layer = {
             "sigmoid": nn.Sigmoid(),
             "relu": nn.ReLU(),
-            "tanh": nn.Tanh()
+            "tanh": nn.Tanh(),
+            "softplus": nn.Softplus(),
+            "gelu": nn.GELU()
         }
 
     def forward(self, input):
@@ -306,7 +312,10 @@ class four_layer_ANN(nn.Module):
 
         self.all_nonlinear_layer = {
             "sigmoid": nn.Sigmoid(),
-            "relu": nn.ReLU()
+            "relu": nn.ReLU(),
+            "tanh": nn.Tanh(),
+            "softplus": nn.Softplus(),
+            "gelu": nn.GELU()
         }
 
     def forward(self, input):
@@ -468,7 +477,10 @@ class two_layer_BNN_VI(nn.Module):
 
         self.all_nonlinear_layer = {
             "sigmoid": nn.Sigmoid(),
-            "relu": nn.ReLU()
+            "relu": nn.ReLU(),
+            "tanh": nn.Tanh(),
+            "softplus": nn.Softplus(),
+            "gelu": nn.GELU()
         }
 
     def forward(self, input):
